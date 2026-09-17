@@ -1,5 +1,9 @@
+using DotNetEnv;
+using photo_album.Api.Extensions;
 using photo_album.Application.Extensions;
 using photo_album.Infrastructure.Extensions;
+
+Env.NoClobber().TraversePath().Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,5 +25,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
+
+await app.ApplyMigrationsAsync();
 
 await app.RunAsync();

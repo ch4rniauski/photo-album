@@ -14,8 +14,10 @@ public static class ServiceCollectionExtensions
     {
         public IServiceCollection AddPhotoAlbumContextConfiguration(IConfiguration configuration)
         {
+            var connectionString = BuildPostgresConnectionString(configuration);
+
             services.AddDbContext<PhotoAlbumContext>(opt =>
-                opt.UseNpgsql(configuration.GetConnectionString("PhotoAlbumDb"))
+                opt.UseNpgsql(connectionString)
             );
 
             services.AddScoped<IUserRepository, UserRepository>();
@@ -23,5 +25,21 @@ public static class ServiceCollectionExtensions
 
             return services;
         }
+    }
+
+    private static string BuildPostgresConnectionString(IConfiguration configuration)
+    {
+        var host = configuration["POSTGRES_HOST"]
+            ?? throw new InvalidOperationException("Environment variable POSTGRES_HOST is not set.");
+        var port = configuration["POSTGRES_PORT"]
+            ?? throw new InvalidOperationException("Environment variable POSTGRES_PORT is not set.");
+        var database = configuration["POSTGRES_DB"]
+            ?? throw new InvalidOperationException("Environment variable POSTGRES_DB is not set.");
+        var username = configuration["POSTGRES_USER"]
+            ?? throw new InvalidOperationException("Environment variable POSTGRES_USER is not set.");
+        var password = configuration["POSTGRES_PASSWORD"]
+            ?? throw new InvalidOperationException("Environment variable POSTGRES_PASSWORD is not set.");
+
+        return $"Host={host};Port={port};Database={database};Username={username};Password={password}";
     }
 }
