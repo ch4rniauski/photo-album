@@ -1,4 +1,5 @@
 using photo_album.Application.Extensions;
+using photo_album.Infrastructure.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,7 +9,8 @@ builder.Services.AddControllers();
 builder.Services
     .AddMediatrConfiguration()
     .AddValidationConfiguration()
-    .AddAutoMapperConfiguration();
+    .AddAutoMapperConfiguration()
+    .AddPhotoAlbumContextConfiguration(builder.Configuration);
 
 var app = builder.Build();
 

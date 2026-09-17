@@ -12,12 +12,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Contracts\Repositories\" />
-      <Folder Include="Dto\Requests\" />
-      <Folder Include="Dto\Responses\" />
-      <Folder Include="MapperProfiles\" />
-      <Folder Include="UseCases\CommandHandlers\" />
-      <Folder Include="UseCases\Commands\" />
       <Folder Include="UseCases\Queries\" />
       <Folder Include="UseCases\QueryHandlers\" />
     </ItemGroup>
@@ -27,6 +21,7 @@
       <PackageReference Include="FluentValidation" Version="12.1.1" />
       <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
       <PackageReference Include="MediatR" Version="14.2.0" />
+      <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="10.0.12" />
     </ItemGroup>
 
 </Project>
