@@ -7,4 +7,12 @@
         <RootNamespace>photo_album.Api</RootNamespace>
     </PropertyGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\photo-album.Infrastructure\photo-album.Infrastructure.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Controllers\" />
+    </ItemGroup>
+
 </Project>

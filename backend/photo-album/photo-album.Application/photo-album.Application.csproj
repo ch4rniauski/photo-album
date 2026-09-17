@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>photo_album.Application</RootNamespace>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\photo-album.Domain\photo-album.Domain.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Contracts\" />
+      <Folder Include="MapperProfiles\" />
+      <Folder Include="UseCases\CommandHandlers\" />
+      <Folder Include="UseCases\Commands\" />
+      <Folder Include="UseCases\Queries\" />
+      <Folder Include="UseCases\QueryHandlers\" />
+    </ItemGroup>
+
+</Project>
