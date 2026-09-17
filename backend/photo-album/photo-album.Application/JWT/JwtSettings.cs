@@ -6,7 +6,6 @@ internal sealed class JwtSettings
     private const string ExpiresInMinutesEnvVar = "JWT_EXPIRES_IN_MINUTES";
 
     public string SecurityKey { get; set; } = string.Empty;
-
     public int ExpiresInMinutes { get; set; }
 
     public static JwtSettings FromEnvironment()
@@ -16,7 +15,7 @@ internal sealed class JwtSettings
         if (!int.TryParse(expiresInMinutesValue, out var expiresInMinutes))
         {
             throw new InvalidOperationException(
-                $"Environment variable '{ExpiresInMinutesEnvVar}' must be a valid integer.");
+                $"Environment variable '{ExpiresInMinutesEnvVar}' must be a valid integer");
         }
 
         return new JwtSettings
@@ -27,6 +26,8 @@ internal sealed class JwtSettings
     }
 
     private static string GetRequired(string name)
-        => Environment.GetEnvironmentVariable(name)
-           ?? throw new InvalidOperationException($"Environment variable '{name}' is not set");
+    {
+        return Environment.GetEnvironmentVariable(name)
+               ?? throw new InvalidOperationException($"Environment variable '{name}' is not set");
+    }
 }

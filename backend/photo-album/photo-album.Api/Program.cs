@@ -15,7 +15,7 @@ builder.Services
     .AddJwtConfiguration()
     .AddValidationConfiguration()
     .AddAutoMapperConfiguration()
-    .AddPhotoAlbumContextConfiguration(builder.Configuration);
+    .AddPhotoAlbumContextConfiguration();
 
 var app = builder.Build();
 
