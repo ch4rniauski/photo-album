@@ -12,6 +12,7 @@ builder.Services.AddControllers();
 
 builder.Services
     .AddMediatrConfiguration()
+    .AddJwtConfiguration()
     .AddValidationConfiguration()
     .AddAutoMapperConfiguration()
     .AddPhotoAlbumContextConfiguration(builder.Configuration);
