@@ -1,0 +1,93 @@
+---
+description: C# formatting and style conventions
+globs: **/*.cs
+alwaysApply: false
+---
+
+# C# Style
+
+## Braces
+Always use `{}` for control flow. Never put the body on the same line as the condition.
+
+```csharp
+// BAD
+if (condition) return;
+if (condition)
+    return;
+
+// GOOD
+if (condition)
+{
+    return;
+}
+```
+
+Applies to `if`, `else`, `for`, `foreach`, `while`, `do-while`, `switch`, and `try-catch`.
+
+## Null checks
+Use `is null` / `is not null`, not `== null` / `!= null`. Prefer `??` / `??=` over ternary null checks.
+
+```csharp
+// BAD
+if (obj == null)
+{
+    return;
+}
+string value = myString != null ? myString : "default";
+
+// GOOD
+if (obj is null)
+{
+    return;
+}
+var value = myString ?? "default";
+```
+
+## Operators
+When splitting `&&` / `||` across lines, put the operator at the end of the line.
+
+```csharp
+// BAD
+if (user.IsActive
+    && user.IsVerified)
+
+// GOOD
+if (user.IsActive &&
+    user.IsVerified)
+```
+
+## Chaining / LINQ
+One method call per line for fluent and LINQ chains. Prefer method syntax over query syntax.
+
+```csharp
+// BAD
+var user = await Db.Users.Where(u => u.Id == userId).Include(u => u.Profile).FirstOrDefaultAsync(ct);
+
+// GOOD
+var user = await Db.Users
+    .Where(u => u.Id == userId)
+    .Include(u => u.Profile)
+    .FirstOrDefaultAsync(ct);
+```
+
+## `var`
+Always use `var` for local variables when the type is obvious from the right-hand side. Prefer `var` over an explicit type whenever the compiler can infer it.
+
+```csharp
+// BAD
+string name = "Alice";
+List<User> users = GetUsers();
+User user = new User();
+
+// GOOD
+var name = "Alice";
+var users = GetUsers();
+var user = new User();
+```
+
+## Naming
+- Types, methods, properties, constants: PascalCase
+- Locals and parameters: camelCase
+
+## Async
+Prefer `async`/`await`. Do not use `.Result` or `.Wait()`. I/O methods return `Task` / `Task<T>`.
