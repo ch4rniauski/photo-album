@@ -37,5 +37,8 @@ internal sealed class UserEntityConfiguration : IEntityTypeConfiguration<UserEnt
         builder.Property(user => user.Role)
             .IsRequired()
             .HasMaxLength(50);
+
+        builder.Property(user => user.RefreshToken)
+            .IsRequired(false);
     }
 }

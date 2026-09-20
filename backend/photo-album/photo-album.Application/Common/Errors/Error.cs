@@ -14,10 +14,19 @@ public abstract class Error
 
     public static ValidationError FailedValidation(string message)
         => new ValidationError(message);
-    
+
     public static InternalServerError InternalError(string message)
         => new(message);
-    
+
     public static NotFoundError NotFound(string message)
+        => new(message);
+
+    public static UnauthorizedError Unauthorized(string message)
+        => new(message);
+
+    public static IncorrectDataTypeError IncorrectDataType(string message)
+        => new(message);
+
+    public static IncorrectTokenError IncorrectToken(string message)
         => new(message);
 }

@@ -1,5 +1,8 @@
+using System.Text;
 using FluentValidation;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using photo_album.Application.Contracts.Jwt;
 using photo_album.Application.JWT;
 
@@ -11,15 +14,33 @@ public static class ServiceCollectionExtensions
     {
         public IServiceCollection AddJwtConfiguration()
         {
+            var settings = JwtSettings.FromEnvironment();
+
             services.AddScoped<ITokenProvider, JwtTokenProvider>();
 
             services.Configure<JwtSettings>(options =>
             {
-                var settings = JwtSettings.FromEnvironment();
-
                 options.SecurityKey = settings.SecurityKey;
                 options.ExpiresInMinutes = settings.ExpiresInMinutes;
             });
+
+            services
+                .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = false,
+                        ValidateAudience = false,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(
+                            Encoding.UTF8.GetBytes(settings.SecurityKey)),
+                        ClockSkew = TimeSpan.Zero
+                    };
+                });
+
+            services.AddAuthorization();
 
             return services;
         }

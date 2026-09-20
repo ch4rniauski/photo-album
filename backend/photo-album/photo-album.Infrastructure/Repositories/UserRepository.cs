@@ -20,6 +20,25 @@ internal sealed class UserRepository : IUserRepository
         return await _context.SaveChangesAsync(cancellationToken) > 0;
     }
 
+    public async Task<bool> UpdateAsync(UserEntity user, CancellationToken cancellationToken = default)
+    {
+        _context.Users.Update(user);
+
+        return await _context.SaveChangesAsync(cancellationToken) > 0;
+    }
+
+    public Task<UserEntity?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return _context.Users
+            .FirstOrDefaultAsync(user => user.Id == id, cancellationToken);
+    }
+
+    public Task<UserEntity?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
+    {
+        return _context.Users
+            .FirstOrDefaultAsync(user => user.Email == email, cancellationToken);
+    }
+
     public Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken = default)
     {
         return _context.Users.AnyAsync(user => user.Email == email, cancellationToken);
