@@ -2,6 +2,7 @@ using System.Text;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using photo_album.Application.Contracts.Jwt;
 using photo_album.Application.JWT;
@@ -28,6 +29,7 @@ public static class ServiceCollectionExtensions
                 .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options =>
                 {
+                    options.MapInboundClaims = false;
                     options.TokenValidationParameters = new TokenValidationParameters
                     {
                         ValidateIssuer = false,
@@ -36,6 +38,7 @@ public static class ServiceCollectionExtensions
                         ValidateIssuerSigningKey = true,
                         IssuerSigningKey = new SymmetricSecurityKey(
                             Encoding.UTF8.GetBytes(settings.SecurityKey)),
+                        NameClaimType = JwtRegisteredClaimNames.Sub,
                         ClockSkew = TimeSpan.Zero
                     };
                 });

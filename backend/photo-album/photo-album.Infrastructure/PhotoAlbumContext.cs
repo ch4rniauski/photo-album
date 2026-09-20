@@ -6,7 +6,8 @@ namespace photo_album.Infrastructure;
 public class PhotoAlbumContext : DbContext
 {
     public DbSet<UserEntity> Users { get; set; }
-    
+    public DbSet<PhotoEntity> Photos { get; set; }
+
     public PhotoAlbumContext(DbContextOptions<PhotoAlbumContext> options) : base(options)
     {
     }

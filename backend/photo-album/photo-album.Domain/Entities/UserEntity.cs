@@ -9,4 +9,5 @@ public sealed class UserEntity
     public string DisplayName { get; set; } = string.Empty;
     public string Role { get; set; } = "User";
     public string? RefreshToken { get; set; }
+    public ICollection<PhotoEntity> Photos { get; set; } = [];
 }
