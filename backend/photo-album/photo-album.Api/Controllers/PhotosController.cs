@@ -7,6 +7,7 @@ using photo_album.Application.Dto.Photo.Requests;
 using photo_album.Application.Dto.Photo.Responses;
 using photo_album.Application.Extensions;
 using photo_album.Application.UseCases.Commands.Photo;
+using photo_album.Application.UseCases.Queries.Photo;
 using photo_album.Application.Validators.Photo;
 
 namespace photo_album.Api.Controllers;
@@ -61,6 +62,23 @@ public sealed class PhotosController : ControllerBase
 
         return result.Match(
             onSuccess: Ok,
+            onFailure: err => Problem(
+                detail: err.Description,
+                statusCode: err.StatusCode));
+    }
+
+    [Authorize]
+    [HttpGet("{id:guid}/original")]
+    public async Task<IActionResult> GetOriginalPhoto(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var query = new GetOriginalPhotoQuery(id);
+
+        var result = await _mediator.Send(query, cancellationToken);
+
+        return result.Match<GetOriginalPhotoResponseDto, IActionResult>(
+            onSuccess: file => File(file.Content, file.ContentType),
             onFailure: err => Problem(
                 detail: err.Description,
                 statusCode: err.StatusCode));

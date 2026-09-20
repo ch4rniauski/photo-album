@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using photo_album.Application.Contracts.Repositories;
 using photo_album.Domain.Entities;
 
@@ -17,5 +18,11 @@ internal sealed class PhotoRepository : IPhotoRepository
         await _context.Photos.AddAsync(photo, cancellationToken);
 
         return await _context.SaveChangesAsync(cancellationToken) > 0;
+    }
+
+    public Task<PhotoEntity?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return _context.Photos
+            .FirstOrDefaultAsync(photo => photo.Id == id, cancellationToken);
     }
 }

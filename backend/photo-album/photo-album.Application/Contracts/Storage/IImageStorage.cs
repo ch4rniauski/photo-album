@@ -6,4 +6,6 @@ public interface IImageStorage
         Stream content,
         string storedFileName,
         CancellationToken cancellationToken = default);
+
+    Stream? OpenOriginal(string storedFileName);
 }
