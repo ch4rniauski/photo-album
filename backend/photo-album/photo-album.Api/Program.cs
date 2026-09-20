@@ -25,10 +25,9 @@ builder.Services.AddSwaggerGen(options =>
         Description = "Paste JWT token"
     });
 
-    // Применяем требование безопасности ко всем эндпоинтам
     options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
     {
-        [new OpenApiSecuritySchemeReference("Bearer", document)] = new List<string>()
+        [new OpenApiSecuritySchemeReference("Bearer", document)] = []
     });
 });
 
