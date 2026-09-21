@@ -11,4 +11,5 @@ public sealed class PhotoEntity
     public Guid OwnerId { get; set; }
     public UserEntity Owner { get; set; } = null!;
     public DateTime CreatedAtUtc { get; set; }
+    public ICollection<PhotoReactionEntity> Reactions { get; set; } = [];
 }

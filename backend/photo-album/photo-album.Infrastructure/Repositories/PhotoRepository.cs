@@ -20,6 +20,13 @@ internal sealed class PhotoRepository : IPhotoRepository
         return await _context.SaveChangesAsync(cancellationToken) > 0;
     }
 
+    public async Task<bool> UpdateAsync(PhotoEntity photo, CancellationToken cancellationToken = default)
+    {
+        _context.Photos.Update(photo);
+
+        return await _context.SaveChangesAsync(cancellationToken) > 0;
+    }
+
     public Task<PhotoEntity?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return _context.Photos

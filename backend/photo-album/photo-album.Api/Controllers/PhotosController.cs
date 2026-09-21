@@ -32,11 +32,7 @@ public sealed class PhotosController : ControllerBase
         [FromForm] string name,
         CancellationToken cancellationToken)
     {
-        var ownerIdClaim = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ??
-                           User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (ownerIdClaim is null ||
-            !Guid.TryParse(ownerIdClaim, out var ownerId))
+        if (!TryGetUserId(out var ownerId))
         {
             return Unauthorized();
         }
@@ -82,5 +78,64 @@ public sealed class PhotosController : ControllerBase
             onFailure: err => Problem(
                 detail: err.Description,
                 statusCode: err.StatusCode));
+    }
+
+    [Authorize]
+    [HttpPut("{id:guid}/likes")]
+    public async Task<ActionResult<UploadPhotoResponseDto>> LikePhoto(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var command = new LikePhotoCommand(id, userId);
+
+        var result = await _mediator.Send(command, cancellationToken);
+
+        return result.Match(
+            onSuccess: Ok,
+            onFailure: err => Problem(
+                detail: err.Description,
+                statusCode: err.StatusCode));
+    }
+
+    [Authorize]
+    [HttpPut("{id:guid}/dislikes")]
+    public async Task<ActionResult<UploadPhotoResponseDto>> DislikePhoto(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var command = new DislikePhotoCommand(id, userId);
+
+        var result = await _mediator.Send(command, cancellationToken);
+
+        return result.Match(
+            onSuccess: Ok,
+            onFailure: err => Problem(
+                detail: err.Description,
+                statusCode: err.StatusCode));
+    }
+
+    private bool TryGetUserId(out Guid userId)
+    {
+        var userIdClaim = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ??
+                          User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (userIdClaim is null ||
+            !Guid.TryParse(userIdClaim, out userId))
+        {
+            userId = Guid.Empty;
+            return false;
+        }
+
+        return true;
     }
 }
