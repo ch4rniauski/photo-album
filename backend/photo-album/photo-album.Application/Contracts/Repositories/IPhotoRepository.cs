@@ -9,4 +9,8 @@ public interface IPhotoRepository
     Task<bool> UpdateAsync(PhotoEntity photo, CancellationToken cancellationToken = default);
 
     Task<PhotoEntity?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<PhotoEntity>> SearchByNameAsync(
+        string search,
+        CancellationToken cancellationToken = default);
 }

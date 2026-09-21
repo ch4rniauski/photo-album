@@ -63,6 +63,22 @@ public sealed class PhotosController : ControllerBase
                 statusCode: err.StatusCode));
     }
 
+    [HttpGet]
+    public async Task<ActionResult<IReadOnlyList<SearchPhotoResponseDto>>> SearchPhotos(
+        [FromQuery] string? search,
+        CancellationToken cancellationToken)
+    {
+        var query = new SearchPhotosQuery(search ?? string.Empty);
+
+        var result = await _mediator.Send(query, cancellationToken);
+
+        return result.Match(
+            onSuccess: Ok,
+            onFailure: err => Problem(
+                detail: err.Description,
+                statusCode: err.StatusCode));
+    }
+
     [Authorize]
     [HttpGet("{id:guid}/original")]
     public async Task<IActionResult> GetOriginalPhoto(

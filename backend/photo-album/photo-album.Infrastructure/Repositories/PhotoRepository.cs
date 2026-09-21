@@ -32,4 +32,25 @@ internal sealed class PhotoRepository : IPhotoRepository
         return _context.Photos
             .FirstOrDefaultAsync(photo => photo.Id == id, cancellationToken);
     }
+
+    public async Task<IReadOnlyList<PhotoEntity>> SearchByNameAsync(
+        string search,
+        CancellationToken cancellationToken = default)
+    {
+        var pattern = $"%{EscapeLikePattern(search)}%";
+
+        return await _context.Photos
+            .AsNoTracking()
+            .Where(photo => EF.Functions.ILike(photo.Name, pattern, "\\"))
+            .OrderByDescending(photo => photo.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
+    private static string EscapeLikePattern(string value)
+    {
+        return value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("%", "\\%", StringComparison.Ordinal)
+            .Replace("_", "\\_", StringComparison.Ordinal);
+    }
 }
