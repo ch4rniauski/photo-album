@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "frontend", "frontend\frontend.csproj", "{A7B8D80E-85EC-47E2-A942-ACC451271332}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A7B8D80E-85EC-47E2-A942-ACC451271332}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A7B8D80E-85EC-47E2-A942-ACC451271332}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A7B8D80E-85EC-47E2-A942-ACC451271332}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A7B8D80E-85EC-47E2-A942-ACC451271332}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
