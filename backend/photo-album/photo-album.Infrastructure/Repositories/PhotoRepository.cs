@@ -46,6 +46,19 @@ internal sealed class PhotoRepository : IPhotoRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<PhotoEntity>> GetWithPaginationAsync(
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Photos
+            .AsNoTracking()
+            .OrderByDescending(photo => photo.CreatedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+    }
+
     private static string EscapeLikePattern(string value)
     {
         return value

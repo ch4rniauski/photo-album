@@ -13,4 +13,9 @@ public interface IPhotoRepository
     Task<IReadOnlyList<PhotoEntity>> SearchByNameAsync(
         string search,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<PhotoEntity>> GetWithPaginationAsync(
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

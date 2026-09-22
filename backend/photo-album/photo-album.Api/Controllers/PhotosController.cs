@@ -64,6 +64,23 @@ public sealed class PhotosController : ControllerBase
     }
 
     [HttpGet]
+    public async Task<ActionResult<IReadOnlyList<GetPhotoResponseDto>>> GetPhotosWithPagination(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetPhotosQuery(page, pageSize);
+
+        var result = await _mediator.Send(query, cancellationToken);
+
+        return result.Match(
+            onSuccess: Ok,
+            onFailure: err => Problem(
+                detail: err.Description,
+                statusCode: err.StatusCode));
+    }
+
+    [HttpGet("search")]
     public async Task<ActionResult<IReadOnlyList<SearchPhotoResponseDto>>> SearchPhotos(
         [FromQuery] string? search,
         CancellationToken cancellationToken)
