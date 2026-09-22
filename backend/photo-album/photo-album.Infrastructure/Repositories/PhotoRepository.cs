@@ -62,7 +62,7 @@ internal sealed class PhotoRepository : IPhotoRepository
     private static string EscapeLikePattern(string value)
     {
         return value
-            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("\\", @"\\", StringComparison.Ordinal)
             .Replace("%", "\\%", StringComparison.Ordinal)
             .Replace("_", "\\_", StringComparison.Ordinal);
     }

@@ -159,8 +159,8 @@ public sealed class PhotosController : ControllerBase
 
     private bool TryGetUserId(out Guid userId)
     {
-        var userIdClaim = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ??
-                          User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var userIdClaim = User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                          ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (userIdClaim is null ||
             !Guid.TryParse(userIdClaim, out userId))
