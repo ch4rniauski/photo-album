@@ -1,7 +1,267 @@
 ﻿@page "/"
+@inject PhotoApiService PhotoApi
+@inject AuthService Auth
+@inject NavigationManager Navigation
+@implements IDisposable
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Photo Album</PageTitle>
 
-<h1>Hello, world!</h1>
+<header class="site-header">
+    <div class="site-header__inner">
+        <a class="brand" href="/">
+            <span class="brand__mark" aria-hidden="true"></span>
+            <span class="brand__name">Photo Album</span>
+        </a>
 
-Welcome to your new app.
+        <form class="search" @onsubmit="HandleSearchAsync" @onsubmit:preventDefault>
+            <label class="visually-hidden" for="photo-search">Search photos</label>
+            <input
+                id="photo-search"
+                class="search__input"
+                type="search"
+                placeholder="Search by name…"
+                @bind="_searchText"
+                @bind:event="oninput"
+                autocomplete="off" />
+            <button class="search__button" type="submit" disabled="@_isLoading">
+                Search
+            </button>
+            @if (_isSearchMode)
+            {
+                <button class="search__clear" type="button" @onclick="ClearSearchAsync">
+                    Clear
+                </button>
+            }
+        </form>
+
+        <div class="site-header__actions">
+            @if (Auth.IsAuthenticated)
+            {
+                <button class="btn btn--ghost" type="button" @onclick="HandleLogoutAsync">
+                    Log out
+                </button>
+            }
+            else
+            {
+                <a class="btn btn--primary" href="/login">Log in</a>
+            }
+        </div>
+    </div>
+</header>
+
+<main class="home">
+    <section class="home__intro">
+        <h1 class="home__title">Your gallery</h1>
+        <p class="home__subtitle">
+            @if (_isSearchMode)
+            {
+                <text>Results for “@_activeSearch”</text>
+            }
+            else
+            {
+                <text>Browse recent photos — page @_page</text>
+            }
+        </p>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <div class="banner banner--error" role="alert">@_errorMessage</div>
+    }
+
+    @if (_isLoading)
+    {
+        <div class="gallery-status" aria-live="polite">Loading photos…</div>
+    }
+    else if (_photos.Count == 0)
+    {
+        <div class="gallery-status">
+            @if (_isSearchMode)
+            {
+                <text>No photos match that search.</text>
+            }
+            else
+            {
+                <text>No photos yet. Upload some from the API to fill this wall.</text>
+            }
+        </div>
+    }
+    else
+    {
+        <section class="gallery" aria-label="Photo gallery">
+            @foreach (var photo in _photos)
+            {
+                <article class="photo-card" @key="photo.Id">
+                    <div class="photo-card__frame">
+                        <img
+                            class="photo-card__image"
+                            src="@PhotoApi.ResolveThumbnailUrl(photo.ThumbnailUrl)"
+                            alt="@photo.Name"
+                            loading="lazy" />
+                    </div>
+                    <div class="photo-card__meta">
+                        <h2 class="photo-card__title">@photo.Name</h2>
+                        <p class="photo-card__stats">
+                            <span>@FormatLikes(photo.LikesCount)</span>
+                            <span aria-hidden="true">·</span>
+                            <span>@FormatDislikes(photo.DislikesCount)</span>
+                        </p>
+                    </div>
+                </article>
+            }
+        </section>
+    }
+
+    @if (!_isSearchMode && !_isLoading)
+    {
+        <nav class="pagination" aria-label="Gallery pagination">
+            <button
+                class="btn btn--ghost"
+                type="button"
+                disabled="@(!_canGoPrevious || _isLoading)"
+                @onclick="GoToPreviousPageAsync">
+                Previous
+            </button>
+            <span class="pagination__page">Page @_page</span>
+            <button
+                class="btn btn--ghost"
+                type="button"
+                disabled="@(!_canGoNext || _isLoading)"
+                @onclick="GoToNextPageAsync">
+                Next
+            </button>
+        </nav>
+    }
+</main>
+
+@code {
+    private const int PageSize = 12;
+
+    private readonly List<PhotoDto> _photos = [];
+
+    private string _searchText = string.Empty;
+    private string _activeSearch = string.Empty;
+    private string? _errorMessage;
+    private int _page = 1;
+    private bool _isLoading = true;
+    private bool _isSearchMode;
+    private bool _canGoNext;
+    private bool _canGoPrevious;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Auth.AuthenticationStateChanged += OnAuthChanged;
+        await Auth.InitializeAsync();
+        await LoadPhotosAsync();
+    }
+
+    private void OnAuthChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadPhotosAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            IReadOnlyList<PhotoDto> photos;
+
+            if (_isSearchMode)
+            {
+                photos = await PhotoApi.SearchPhotosAsync(_activeSearch);
+                _canGoNext = false;
+                _canGoPrevious = false;
+            }
+            else
+            {
+                photos = await PhotoApi.GetPhotosAsync(_page, PageSize);
+                _canGoPrevious = _page > 1;
+                _canGoNext = photos.Count >= PageSize;
+            }
+
+            _photos.Clear();
+            _photos.AddRange(photos);
+        }
+        catch (Exception)
+        {
+            _photos.Clear();
+            _errorMessage = "Could not load photos. Make sure the API is running.";
+            _canGoNext = false;
+            _canGoPrevious = false;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task HandleSearchAsync()
+    {
+        var query = _searchText.Trim();
+
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            await ClearSearchAsync();
+            return;
+        }
+
+        _isSearchMode = true;
+        _activeSearch = query;
+        _page = 1;
+
+        await LoadPhotosAsync();
+    }
+
+    private async Task ClearSearchAsync()
+    {
+        _searchText = string.Empty;
+        _activeSearch = string.Empty;
+        _isSearchMode = false;
+        _page = 1;
+
+        await LoadPhotosAsync();
+    }
+
+    private async Task GoToPreviousPageAsync()
+    {
+        if (!_canGoPrevious)
+        {
+            return;
+        }
+
+        _page--;
+
+        await LoadPhotosAsync();
+    }
+
+    private async Task GoToNextPageAsync()
+    {
+        if (!_canGoNext)
+        {
+            return;
+        }
+
+        _page++;
+        
+        await LoadPhotosAsync();
+    }
+
+    private async Task HandleLogoutAsync()
+    {
+        await Auth.LogoutAsync();
+        Navigation.NavigateTo("/");
+    }
+
+    private static string FormatLikes(int count) => $"{count} like{(count == 1 ? "" : "s")}";
+
+    private static string FormatDislikes(int count) => $"{count} dislike{(count == 1 ? "" : "s")}";
+
+    public void Dispose()
+    {
+        Auth.AuthenticationStateChanged -= OnAuthChanged;
+    }
+}

@@ -1,0 +1,96 @@
+@page "/login"
+@inject AuthService Auth
+@inject NavigationManager Navigation
+
+<PageTitle>Log in · Photo Album</PageTitle>
+
+<main class="auth">
+    <section class="auth__panel">
+        <a class="brand brand--compact" href="/">
+            <span class="brand__mark" aria-hidden="true"></span>
+            <span class="brand__name">Photo Album</span>
+        </a>
+
+        <h1 class="auth__title">Welcome back</h1>
+        <p class="auth__subtitle">Sign in to like photos and upload your own.</p>
+
+        <EditForm Model="_model" OnValidSubmit="HandleLoginAsync" class="auth__form">
+            <div class="field">
+                <label for="email">Email</label>
+                <InputText id="email" class="field__input" @bind-Value="_model.Email" autocomplete="username" />
+            </div>
+
+            <div class="field">
+                <label for="password">Password</label>
+                <InputText
+                    id="password"
+                    type="password"
+                    class="field__input"
+                    @bind-Value="_model.Password"
+                    autocomplete="current-password" />
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_errorMessage))
+            {
+                <div class="banner banner--error" role="alert">@_errorMessage</div>
+            }
+
+            <button class="btn btn--primary btn--block" type="submit" disabled="@_isSubmitting">
+                @(_isSubmitting ? "Signing in…" : "Log in")
+            </button>
+        </EditForm>
+
+        <p class="auth__footer">
+            <a href="/">Back to gallery</a>
+        </p>
+    </section>
+</main>
+
+@code {
+    private readonly LoginFormModel _model = new();
+    private string? _errorMessage;
+    private bool _isSubmitting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.InitializeAsync();
+
+        if (Auth.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/");
+        }
+    }
+
+    private async Task HandleLoginAsync()
+    {
+        _errorMessage = null;
+        _isSubmitting = true;
+
+        try
+        {
+            var success = await Auth.LoginAsync(_model.Email.Trim(), _model.Password);
+
+            if (!success)
+            {
+                _errorMessage = "Invalid email or password.";
+                return;
+            }
+
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Could not reach the API. Try again later.";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private sealed class LoginFormModel
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}
