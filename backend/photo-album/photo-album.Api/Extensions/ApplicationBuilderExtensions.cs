@@ -15,5 +15,19 @@ public static class ApplicationBuilderExtensions
 
             await db.Database.MigrateAsync();
         }
+        
+        public async Task CheckDbPendingMigrationsAsync()
+        {
+            await using var scope = app.ApplicationServices.CreateAsyncScope();
+            
+            await using var db = scope.ServiceProvider.GetRequiredService<PhotoAlbumContext>();
+
+            var hasPendingChanges = db.Database.HasPendingModelChanges();
+
+            if (hasPendingChanges)
+            {
+                throw new InvalidOperationException("There are migrations that have not been applied");
+            }
+        }
     }
 }

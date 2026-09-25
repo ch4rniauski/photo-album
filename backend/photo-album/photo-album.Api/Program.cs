@@ -17,16 +17,18 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
     {
         policy
-            .WithOrigins(
-                "http://localhost:5066",
-                "https://localhost:7013")
+            .WithOrigins("http://localhost:5066")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
 });
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo { Title = "My API", Version = "v1" });
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "My API",
+        Version = "v1"
+    });
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -79,11 +81,13 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 app.UseCors();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
 await app.ApplyMigrationsAsync();
+await app.CheckDbPendingMigrationsAsync();
 
 await app.RunAsync();
