@@ -256,6 +256,7 @@ input {
     flex-direction: column;
     gap: 0.75rem;
     animation: rise-in 0.55s ease both;
+    cursor: pointer;
 }
 
 .photo-card:nth-child(2) { animation-delay: 0.04s; }

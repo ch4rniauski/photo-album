@@ -15,6 +15,6 @@ internal sealed class SearchPhotoProfile : Profile
                 src.LikesCount,
                 src.DislikesCount,
                 src.OwnerId,
-                $"storage/images/thumbnails/{src.ThumbnailFileName}"));
+                $"api/Photos/{src.Id}/thumbnail"));
     }
 }

@@ -8,4 +8,6 @@ public interface IImageStorage
         CancellationToken cancellationToken = default);
 
     Stream? OpenOriginal(string storedFileName);
+
+    Stream? OpenThumbnail(string storedFileName);
 }

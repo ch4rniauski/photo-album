@@ -96,6 +96,22 @@ public sealed class PhotosController : ControllerBase
                 statusCode: err.StatusCode));
     }
 
+    [HttpGet("{id:guid}/thumbnail")]
+    public async Task<IActionResult> GetThumbnailPhoto(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var query = new GetThumbnailPhotoQuery(id);
+
+        var result = await _mediator.Send(query, cancellationToken);
+
+        return result.Match<GetThumbnailPhotoResponseDto, IActionResult>(
+            onSuccess: file => File(file.Content, file.ContentType),
+            onFailure: err => Problem(
+                detail: err.Description,
+                statusCode: err.StatusCode));
+    }
+
     [Authorize]
     [HttpGet("{id:guid}/original")]
     public async Task<IActionResult> GetOriginalPhoto(

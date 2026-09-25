@@ -50,7 +50,7 @@ public sealed class PhotoApiService
         }
 
         var baseAddress = _httpClient.BaseAddress?.ToString().TrimEnd('/') ?? string.Empty;
-        
+
         return $"{baseAddress}/{thumbnailUrl.TrimStart('/')}";
     }
 }

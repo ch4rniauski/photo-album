@@ -84,4 +84,16 @@ internal sealed class LocalImageStorage : IImageStorage
 
         return File.OpenRead(originalPath);
     }
+
+    public Stream? OpenThumbnail(string storedFileName)
+    {
+        var thumbnailPath = Path.Combine(_settings.ThumbnailsPath, storedFileName);
+
+        if (!File.Exists(thumbnailPath))
+        {
+            return null;
+        }
+
+        return File.OpenRead(thumbnailPath);
+    }
 }
