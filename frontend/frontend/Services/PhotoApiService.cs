@@ -37,6 +37,26 @@ public sealed class PhotoApiService
         return photos ?? [];
     }
 
+    public async Task<OriginalPhotoContent?> GetOriginalPhotoAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync(
+            $"api/Photos/{id}/original",
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
+        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+
+        return new OriginalPhotoContent(bytes, contentType);
+    }
+
     public string ResolveThumbnailUrl(string thumbnailUrl)
     {
         if (string.IsNullOrWhiteSpace(thumbnailUrl))

@@ -112,7 +112,6 @@ public sealed class PhotosController : ControllerBase
                 statusCode: err.StatusCode));
     }
 
-    [Authorize]
     [HttpGet("{id:guid}/original")]
     public async Task<IActionResult> GetOriginalPhoto(
         Guid id,
