@@ -15,5 +15,6 @@ builder.Services.AddScoped(_ => new HttpClient
 });
 builder.Services.AddScoped<PhotoApiService>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<AdminApiService>();
 
 await builder.Build().RunAsync();

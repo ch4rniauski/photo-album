@@ -4,10 +4,12 @@ using MediatR;
 using Microsoft.AspNetCore.Identity;
 using photo_album.Application.Common.Errors;
 using photo_album.Application.Common.Results;
+using photo_album.Application.Contracts.Activity;
 using photo_album.Application.Contracts.Repositories;
 using photo_album.Application.Dto.User.Requests;
 using photo_album.Application.Dto.User.Responses;
 using photo_album.Application.UseCases.Commands.User;
+using photo_album.Domain.Constants;
 using photo_album.Domain.Entities;
 
 namespace photo_album.Application.UseCases.CommandHandlers.User;
@@ -18,17 +20,20 @@ internal sealed class CreateUserCommandHandler : IRequestHandler<CreateUserComma
     private readonly IValidator<CreateUserRequestDto> _validator;
     private readonly IMapper _mapper;
     private readonly IPasswordHasher<UserEntity> _passwordHasher;
+    private readonly IUserActivityLogService _activityLogService;
 
     public CreateUserCommandHandler(
         IUserRepository repository,
         IValidator<CreateUserRequestDto> validator,
         IMapper mapper,
-        IPasswordHasher<UserEntity> passwordHasher)
+        IPasswordHasher<UserEntity> passwordHasher,
+        IUserActivityLogService activityLogService)
     {
         _repository = repository;
         _validator = validator;
         _mapper = mapper;
         _passwordHasher = passwordHasher;
+        _activityLogService = activityLogService;
     }
 
     public async Task<Result<CreateUserResponseDto>> Handle(
@@ -75,6 +80,14 @@ internal sealed class CreateUserCommandHandler : IRequestHandler<CreateUserComma
                 Error.InternalError($"User with id {user.Id} was not created")
             );
         }
+
+        await _activityLogService.LogAsync(
+            user.Id,
+            user.UserName,
+            UserActivityActions.Register,
+            entityType: "User",
+            entityId: user.Id,
+            cancellationToken: cancellationToken);
 
         var response = _mapper.Map<CreateUserResponseDto>(user);
 

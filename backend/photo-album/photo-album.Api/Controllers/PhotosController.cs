@@ -129,6 +129,28 @@ public sealed class PhotosController : ControllerBase
     }
 
     [Authorize]
+    [HttpGet("{id:guid}/reaction")]
+    public async Task<ActionResult<PhotoReactionResponseDto>> GetMyPhotoReaction(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var query = new GetMyPhotoReactionQuery(id, userId);
+
+        var result = await _mediator.Send(query, cancellationToken);
+
+        return result.Match(
+            onSuccess: Ok,
+            onFailure: err => Problem(
+                detail: err.Description,
+                statusCode: err.StatusCode));
+    }
+
+    [Authorize]
     [HttpPut("{id:guid}/likes")]
     public async Task<ActionResult<UploadPhotoResponseDto>> LikePhoto(
         Guid id,
@@ -162,6 +184,29 @@ public sealed class PhotosController : ControllerBase
         }
 
         var command = new DislikePhotoCommand(id, userId);
+
+        var result = await _mediator.Send(command, cancellationToken);
+
+        return result.Match(
+            onSuccess: Ok,
+            onFailure: err => Problem(
+                detail: err.Description,
+                statusCode: err.StatusCode));
+    }
+
+    [Authorize]
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<UploadPhotoResponseDto>> RenamePhoto(
+        Guid id,
+        [FromBody] RenamePhotoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var command = new RenamePhotoCommand(id, userId, request);
 
         var result = await _mediator.Send(command, cancellationToken);
 

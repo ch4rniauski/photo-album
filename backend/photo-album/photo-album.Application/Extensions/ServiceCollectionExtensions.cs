@@ -4,8 +4,11 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using photo_album.Application.Contracts.Activity;
 using photo_album.Application.Contracts.Jwt;
 using photo_album.Application.JWT;
+using photo_album.Application.Services;
+using photo_album.Domain.Constants;
 
 namespace photo_album.Application.Extensions;
 
@@ -18,6 +21,7 @@ public static class ServiceCollectionExtensions
             var settings = JwtSettings.FromEnvironment();
 
             services.AddScoped<ITokenProvider, JwtTokenProvider>();
+            services.AddScoped<IUserActivityLogService, UserActivityLogService>();
 
             services.Configure<JwtSettings>(options =>
             {
@@ -39,11 +43,17 @@ public static class ServiceCollectionExtensions
                         IssuerSigningKey = new SymmetricSecurityKey(
                             Encoding.UTF8.GetBytes(settings.SecurityKey)),
                         NameClaimType = JwtRegisteredClaimNames.Sub,
+                        RoleClaimType = "role",
                         ClockSkew = TimeSpan.Zero
                     };
                 });
 
-            services.AddAuthorization();
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy(
+                    "Admin",
+                    policy => policy.RequireRole(UserRoles.Admin));
+            });
 
             return services;
         }

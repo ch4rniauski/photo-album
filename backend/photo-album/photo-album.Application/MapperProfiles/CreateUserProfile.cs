@@ -27,10 +27,6 @@ internal sealed class CreateUserProfile : Profile
                 opt => opt.Ignore()
             )
             .ForMember(
-                dest => dest.DisplayName,
-                opt => opt.MapFrom(src => src.DisplayName)
-            )
-            .ForMember(
                 dest => dest.Role,
                 opt => opt.MapFrom(_ => "User")
             );
@@ -47,10 +43,6 @@ internal sealed class CreateUserProfile : Profile
             .ForMember(
                 dest => dest.Email,
                 opt => opt.MapFrom(src => src.Email)
-            )
-            .ForMember(
-                dest => dest.DisplayName,
-                opt => opt.MapFrom(src => src.DisplayName)
             )
             .ForMember(
                 dest => dest.Role,

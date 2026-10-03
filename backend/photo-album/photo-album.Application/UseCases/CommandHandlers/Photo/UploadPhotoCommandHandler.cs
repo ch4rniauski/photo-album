@@ -4,11 +4,13 @@ using FluentValidation;
 using MediatR;
 using photo_album.Application.Common.Errors;
 using photo_album.Application.Common.Results;
+using photo_album.Application.Contracts.Activity;
 using photo_album.Application.Contracts.Repositories;
 using photo_album.Application.Contracts.Storage;
 using photo_album.Application.Dto.Photo.Requests;
 using photo_album.Application.Dto.Photo.Responses;
 using photo_album.Application.UseCases.Commands.Photo;
+using photo_album.Domain.Constants;
 using photo_album.Domain.Entities;
 
 namespace photo_album.Application.UseCases.CommandHandlers.Photo;
@@ -24,19 +26,22 @@ internal sealed class UploadPhotoCommandHandler : IRequestHandler<UploadPhotoCom
     private readonly IImageStorage _imageStorage;
     private readonly IValidator<UploadPhotoRequestDto> _validator;
     private readonly IMapper _mapper;
+    private readonly IUserActivityLogService _activityLogService;
 
     public UploadPhotoCommandHandler(
         IPhotoRepository photoRepository,
         IUserRepository userRepository,
         IImageStorage imageStorage,
         IValidator<UploadPhotoRequestDto> validator,
-        IMapper mapper)
+        IMapper mapper,
+        IUserActivityLogService activityLogService)
     {
         _photoRepository = photoRepository;
         _userRepository = userRepository;
         _imageStorage = imageStorage;
         _validator = validator;
         _mapper = mapper;
+        _activityLogService = activityLogService;
     }
 
     public async Task<Result<UploadPhotoResponseDto>> Handle(
@@ -106,6 +111,15 @@ internal sealed class UploadPhotoCommandHandler : IRequestHandler<UploadPhotoCom
                 Error.InternalError($"Photo with id {photo.Id} was not created")
             );
         }
+
+        await _activityLogService.LogAsync(
+            owner.Id,
+            owner.UserName,
+            UserActivityActions.UploadPhoto,
+            entityType: "Photo",
+            entityId: photo.Id,
+            details: photo.Name,
+            cancellationToken: cancellationToken);
 
         var response = _mapper.Map<UploadPhotoResponseDto>(photo);
 

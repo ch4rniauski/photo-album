@@ -4,5 +4,4 @@ public sealed record CreateUserResponseDto(
     Guid Id,
     string UserName,
     string Email,
-    string DisplayName,
     string Role);

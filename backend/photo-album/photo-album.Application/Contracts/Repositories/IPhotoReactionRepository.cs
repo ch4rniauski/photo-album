@@ -12,4 +12,6 @@ public interface IPhotoReactionRepository
     Task<bool> AddAsync(PhotoReactionEntity reaction, CancellationToken cancellationToken = default);
 
     Task<bool> UpdateAsync(PhotoReactionEntity reaction, CancellationToken cancellationToken = default);
+
+    Task<bool> DeleteAsync(PhotoReactionEntity reaction, CancellationToken cancellationToken = default);
 }

@@ -1,0 +1,196 @@
+@page "/admin/users"
+@inject AuthService Auth
+@inject AdminApiService AdminApi
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<PageTitle>Users · Admin</PageTitle>
+
+<header class="site-header">
+    <div class="site-header__inner site-header__inner--admin">
+        <a class="brand" href="/">
+            <span class="brand__mark" aria-hidden="true"></span>
+            <span class="brand__name">Photo Album</span>
+        </a>
+
+        <nav class="admin-nav" aria-label="Admin">
+            <a class="admin-nav__link admin-nav__link--active" href="/admin/users">Users</a>
+            <a class="admin-nav__link" href="/admin/activities">Activity</a>
+        </nav>
+
+        <div class="site-header__actions">
+            <a class="btn btn--ghost" href="/">Gallery</a>
+            <button class="btn btn--ghost" type="button" @onclick="HandleLogoutAsync">Log out</button>
+        </div>
+    </div>
+</header>
+
+<main class="admin">
+    <section class="admin__intro">
+        <h1 class="admin__title">Users</h1>
+        <p class="admin__subtitle">View user accounts. Admin role is set only in the database.</p>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <div class="banner banner--error" role="alert">@_errorMessage</div>
+    }
+
+    @if (_isLoading)
+    {
+        <div class="gallery-status" aria-live="polite">Loading users…</div>
+    }
+    else if (_users.Count == 0)
+    {
+        <div class="gallery-status">No users found.</div>
+    }
+    else
+    {
+        <div class="admin-table-wrap">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in _users)
+                    {
+                        <tr @key="user.Id">
+                            <td>
+                                <div class="admin-table__primary">@user.UserName</div>
+                            </td>
+                            <td>@user.Email</td>
+                            <td>
+                                <span class="badge @(user.Role == "Admin" ? "badge--accent" : "badge--muted")">
+                                    @user.Role
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <nav class="pagination" aria-label="Users pagination">
+            <button
+                class="btn btn--ghost"
+                type="button"
+                disabled="@(_page <= 1 || _isLoading)"
+                @onclick="GoToPreviousPageAsync">
+                Previous
+            </button>
+            <span class="pagination__page">Page @_page · @_totalCount total</span>
+            <button
+                class="btn btn--ghost"
+                type="button"
+                disabled="@(!_canGoNext || _isLoading)"
+                @onclick="GoToNextPageAsync">
+                Next
+            </button>
+        </nav>
+    }
+</main>
+
+@code {
+    private const int PageSize = 20;
+
+    private readonly List<AdminUserDto> _users = [];
+
+    private string? _errorMessage;
+    private int _page = 1;
+    private int _totalCount;
+    private bool _isLoading = true;
+    private bool _canGoNext;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Auth.AuthenticationStateChanged += OnAuthChanged;
+        await Auth.InitializeAsync();
+
+        if (!Auth.IsAdmin)
+        {
+            Navigation.NavigateTo(Auth.IsAuthenticated ? "/" : "/login");
+            return;
+        }
+
+        await LoadUsersAsync();
+    }
+
+    private void OnAuthChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await AdminApi.GetUsersAsync(_page, PageSize);
+
+            if (result is null)
+            {
+                _users.Clear();
+                _errorMessage = "Could not load users. Check that you are signed in as Admin.";
+                _canGoNext = false;
+                _totalCount = 0;
+                return;
+            }
+
+            _users.Clear();
+            _users.AddRange(result.Items);
+            _totalCount = result.TotalCount;
+            _canGoNext = _page * PageSize < result.TotalCount;
+        }
+        catch (Exception)
+        {
+            _users.Clear();
+            _errorMessage = "Could not reach the API.";
+            _canGoNext = false;
+            _totalCount = 0;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task GoToPreviousPageAsync()
+    {
+        if (_page <= 1)
+        {
+            return;
+        }
+
+        _page--;
+        await LoadUsersAsync();
+    }
+
+    private async Task GoToNextPageAsync()
+    {
+        if (!_canGoNext)
+        {
+            return;
+        }
+
+        _page++;
+        await LoadUsersAsync();
+    }
+
+    private async Task HandleLogoutAsync()
+    {
+        await Auth.LogoutAsync();
+        Navigation.NavigateTo("/login");
+    }
+
+    public void Dispose()
+    {
+        Auth.AuthenticationStateChanged -= OnAuthChanged;
+    }
+}

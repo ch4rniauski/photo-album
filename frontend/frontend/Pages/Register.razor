@@ -1,0 +1,148 @@
+@page "/register"
+@inject AuthService Auth
+@inject NavigationManager Navigation
+
+<PageTitle>Register · Photo Album</PageTitle>
+
+<main class="auth">
+    <section class="auth__panel">
+        <a class="brand brand--compact" href="/">
+            <span class="brand__mark" aria-hidden="true"></span>
+            <span class="brand__name">Photo Album</span>
+        </a>
+
+        <h1 class="auth__title">Create account</h1>
+        <p class="auth__subtitle">Join Photo Album to upload and like photos.</p>
+
+        <EditForm Model="_model" OnValidSubmit="HandleRegisterAsync" class="auth__form">
+            <div class="field">
+                <label for="userName">Username</label>
+                <InputText id="userName" class="field__input" @bind-Value="_model.UserName" autocomplete="username" />
+            </div>
+
+            <div class="field">
+                <label for="email">Email</label>
+                <InputText id="email" class="field__input" @bind-Value="_model.Email" autocomplete="email" />
+            </div>
+
+            <div class="field">
+                <label for="password">Password</label>
+                <InputText
+                    id="password"
+                    type="password"
+                    class="field__input"
+                    @bind-Value="_model.Password"
+                    autocomplete="new-password" />
+            </div>
+
+            <div class="field">
+                <label for="confirmPassword">Confirm password</label>
+                <InputText
+                    id="confirmPassword"
+                    type="password"
+                    class="field__input"
+                    @bind-Value="_model.ConfirmPassword"
+                    autocomplete="new-password" />
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_errorMessage))
+            {
+                <div class="banner banner--error" role="alert">@_errorMessage</div>
+            }
+
+            <button class="btn btn--primary btn--block" type="submit" disabled="@_isSubmitting">
+                @(_isSubmitting ? "Creating account…" : "Register")
+            </button>
+        </EditForm>
+
+        <p class="auth__footer">
+            Already have an account? <a href="/login">Log in</a>
+        </p>
+        <p class="auth__footer">
+            <a href="/">Back to gallery</a>
+        </p>
+    </section>
+</main>
+
+@code {
+    private readonly RegisterFormModel _model = new();
+    private string? _errorMessage;
+    private bool _isSubmitting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.InitializeAsync();
+
+        if (Auth.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/");
+        }
+    }
+
+    private async Task HandleRegisterAsync()
+    {
+        _errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(_model.UserName) ||
+            string.IsNullOrWhiteSpace(_model.Email) ||
+            string.IsNullOrWhiteSpace(_model.Password))
+        {
+            _errorMessage = "Please fill in all fields.";
+            return;
+        }
+
+        if (_model.Password.Length < 8)
+        {
+            _errorMessage = "Password must be at least 8 characters.";
+            return;
+        }
+
+        if (!string.Equals(_model.Password, _model.ConfirmPassword, StringComparison.Ordinal))
+        {
+            _errorMessage = "Passwords do not match.";
+            return;
+        }
+
+        _isSubmitting = true;
+
+        try
+        {
+            var (success, errorMessage) = await Auth.RegisterAsync(
+                _model.UserName.Trim(),
+                _model.Email.Trim(),
+                _model.Password);
+
+            if (!success)
+            {
+                _errorMessage = errorMessage ?? "Could not create account.";
+                return;
+            }
+
+            var loggedIn = await Auth.LoginAsync(_model.Email.Trim(), _model.Password);
+
+            if (!loggedIn)
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Could not reach the API. Try again later.";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private sealed class RegisterFormModel
+    {
+        public string UserName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

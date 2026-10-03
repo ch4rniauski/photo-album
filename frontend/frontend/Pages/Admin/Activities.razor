@@ -1,0 +1,286 @@
+@page "/admin/activities"
+@inject AuthService Auth
+@inject AdminApiService AdminApi
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<PageTitle>Activity · Admin</PageTitle>
+
+<header class="site-header">
+    <div class="site-header__inner site-header__inner--admin">
+        <a class="brand" href="/">
+            <span class="brand__mark" aria-hidden="true"></span>
+            <span class="brand__name">Photo Album</span>
+        </a>
+
+        <nav class="admin-nav" aria-label="Admin">
+            <a class="admin-nav__link" href="/admin/users">Users</a>
+            <a class="admin-nav__link admin-nav__link--active" href="/admin/activities">Activity</a>
+        </nav>
+
+        <div class="site-header__actions">
+            <a class="btn btn--ghost" href="/">Gallery</a>
+            <button class="btn btn--ghost" type="button" @onclick="HandleLogoutAsync">Log out</button>
+        </div>
+    </div>
+</header>
+
+<main class="admin">
+    <section class="admin__intro">
+        <h1 class="admin__title">Activity</h1>
+        <p class="admin__subtitle">Track registrations, logins, uploads, reactions, and renames.</p>
+    </section>
+
+    <form class="admin-filters" @onsubmit="HandleFilterAsync" @onsubmit:preventDefault>
+        <div class="field">
+            <label for="action-filter">Action</label>
+            <InputSelect id="action-filter" class="field__input" @bind-Value="_actionFilter">
+                <option value="">All actions</option>
+                <option value="Register">Register</option>
+                <option value="Login">Login</option>
+                <option value="LoginFailed">LoginFailed</option>
+                <option value="UploadPhoto">UploadPhoto</option>
+                <option value="LikePhoto">LikePhoto</option>
+                <option value="DislikePhoto">DislikePhoto</option>
+                <option value="RemoveLikePhoto">RemoveLikePhoto</option>
+                <option value="RemoveDislikePhoto">RemoveDislikePhoto</option>
+                <option value="RenamePhoto">RenamePhoto</option>
+            </InputSelect>
+        </div>
+
+        <div class="field">
+            <label for="user-id-filter">User ID</label>
+            <InputText
+                id="user-id-filter"
+                class="field__input"
+                @bind-Value="_userIdFilter"
+                placeholder="Optional GUID" />
+        </div>
+
+        <div class="admin-filters__actions">
+            <button class="btn btn--primary" type="submit" disabled="@_isLoading">Apply</button>
+            <button class="btn btn--ghost" type="button" disabled="@_isLoading" @onclick="ClearFiltersAsync">
+                Clear
+            </button>
+        </div>
+    </form>
+
+    @if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <div class="banner banner--error" role="alert">@_errorMessage</div>
+    }
+
+    @if (_isLoading)
+    {
+        <div class="gallery-status" aria-live="polite">Loading activity…</div>
+    }
+    else if (_activities.Count == 0)
+    {
+        <div class="gallery-status">No activity matches the current filters.</div>
+    }
+    else
+    {
+        <div class="admin-table-wrap">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>When (UTC)</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Target</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var activity in _activities)
+                    {
+                        <tr @key="activity.Id">
+                            <td class="admin-table__mono">@activity.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td>
+                                <div class="admin-table__primary">@activity.UserName</div>
+                                @if (activity.UserId is not null)
+                                {
+                                    <div class="admin-table__secondary admin-table__mono">@activity.UserId</div>
+                                }
+                            </td>
+                            <td>
+                                <span class="badge badge--muted">@activity.Action</span>
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(activity.EntityType))
+                                {
+                                    <div>@activity.EntityType</div>
+                                    @if (activity.EntityId is not null)
+                                    {
+                                        <div class="admin-table__secondary admin-table__mono">@activity.EntityId</div>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="admin-table__secondary">—</span>
+                                }
+                            </td>
+                            <td>@(activity.Details ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <nav class="pagination" aria-label="Activity pagination">
+            <button
+                class="btn btn--ghost"
+                type="button"
+                disabled="@(_page <= 1 || _isLoading)"
+                @onclick="GoToPreviousPageAsync">
+                Previous
+            </button>
+            <span class="pagination__page">Page @_page · @_totalCount total</span>
+            <button
+                class="btn btn--ghost"
+                type="button"
+                disabled="@(!_canGoNext || _isLoading)"
+                @onclick="GoToNextPageAsync">
+                Next
+            </button>
+        </nav>
+    }
+</main>
+
+@code {
+    private const int PageSize = 50;
+
+    private readonly List<UserActivityDto> _activities = [];
+
+    private string _actionFilter = string.Empty;
+    private string _userIdFilter = string.Empty;
+    private string? _activeAction;
+    private Guid? _activeUserId;
+    private string? _errorMessage;
+    private int _page = 1;
+    private int _totalCount;
+    private bool _isLoading = true;
+    private bool _canGoNext;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Auth.AuthenticationStateChanged += OnAuthChanged;
+        await Auth.InitializeAsync();
+
+        if (!Auth.IsAdmin)
+        {
+            Navigation.NavigateTo(Auth.IsAuthenticated ? "/" : "/login");
+            return;
+        }
+
+        await LoadActivitiesAsync();
+    }
+
+    private void OnAuthChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadActivitiesAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await AdminApi.GetActivitiesAsync(
+                _page,
+                PageSize,
+                _activeUserId,
+                _activeAction);
+
+            if (result is null)
+            {
+                _activities.Clear();
+                _errorMessage = "Could not load activity. Check that you are signed in as Admin.";
+                _canGoNext = false;
+                _totalCount = 0;
+                return;
+            }
+
+            _activities.Clear();
+            _activities.AddRange(result.Items);
+            _totalCount = result.TotalCount;
+            _canGoNext = _page * PageSize < result.TotalCount;
+        }
+        catch (Exception)
+        {
+            _activities.Clear();
+            _errorMessage = "Could not reach the API.";
+            _canGoNext = false;
+            _totalCount = 0;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task HandleFilterAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(_userIdFilter) &&
+            !Guid.TryParse(_userIdFilter.Trim(), out var parsedUserId))
+        {
+            _errorMessage = "User ID must be a valid GUID.";
+            return;
+        }
+
+        _activeAction = string.IsNullOrWhiteSpace(_actionFilter) ? null : _actionFilter;
+        _activeUserId = string.IsNullOrWhiteSpace(_userIdFilter)
+            ? null
+            : Guid.Parse(_userIdFilter.Trim());
+        _page = 1;
+
+        await LoadActivitiesAsync();
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        _actionFilter = string.Empty;
+        _userIdFilter = string.Empty;
+        _activeAction = null;
+        _activeUserId = null;
+        _page = 1;
+
+        await LoadActivitiesAsync();
+    }
+
+    private async Task GoToPreviousPageAsync()
+    {
+        if (_page <= 1)
+        {
+            return;
+        }
+
+        _page--;
+        await LoadActivitiesAsync();
+    }
+
+    private async Task GoToNextPageAsync()
+    {
+        if (!_canGoNext)
+        {
+            return;
+        }
+
+        _page++;
+        await LoadActivitiesAsync();
+    }
+
+    private async Task HandleLogoutAsync()
+    {
+        await Auth.LogoutAsync();
+        Navigation.NavigateTo("/login");
+    }
+
+    public void Dispose()
+    {
+        Auth.AuthenticationStateChanged -= OnAuthChanged;
+    }
+}

@@ -20,9 +20,5 @@ public sealed class CreateUserRequestDtoValidator : AbstractValidator<CreateUser
             .NotEmpty()
             .MinimumLength(8)
             .MaximumLength(100);
-
-        RuleFor(user => user.DisplayName)
-            .NotEmpty()
-            .MaximumLength(100);
     }
 }

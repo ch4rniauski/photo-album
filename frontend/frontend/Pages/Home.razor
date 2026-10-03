@@ -38,6 +38,10 @@
         <div class="site-header__actions">
             @if (Auth.IsAuthenticated)
             {
+                @if (Auth.IsAdmin)
+                {
+                    <a class="btn btn--ghost" href="/admin/users">Admin</a>
+                }
                 <button class="btn btn--ghost" type="button" @onclick="HandleLogoutAsync">
                     Log out
                 </button>
@@ -141,13 +145,13 @@
     }
 </main>
 
-@if (_isModalOpen)
+@if (_isModalOpen && _selectedPhoto is not null)
 {
     <div
         class="photo-modal"
         role="dialog"
         aria-modal="true"
-        aria-label="@(_selectedPhotoName ?? "Original photo")"
+        aria-label="@_selectedPhoto.Name"
         tabindex="-1"
         @ref="_modalRoot"
         @onclick="CloseModalAsync"
@@ -177,7 +181,71 @@
                 <img
                     class="photo-modal__image"
                     src="@_originalObjectUrl"
-                    alt="@(_selectedPhotoName ?? "Original photo")" />
+                    alt="@_selectedPhoto.Name" />
+
+                <div class="photo-modal__panel">
+                    <div class="photo-modal__header">
+                        <h2 class="photo-modal__title">@_selectedPhoto.Name</h2>
+                        <p class="photo-modal__stats">
+                            <span>@FormatLikes(_selectedPhoto.LikesCount)</span>
+                            <span aria-hidden="true">·</span>
+                            <span>@FormatDislikes(_selectedPhoto.DislikesCount)</span>
+                        </p>
+                    </div>
+
+                    <div class="photo-modal__actions">
+                        @if (Auth.IsAuthenticated)
+                        {
+                            <button
+                                class="@GetReactionButtonClass(isLike: true)"
+                                type="button"
+                                aria-pressed="@(_currentUserIsLiked == true)"
+                                disabled="@(_isActionBusy || _isReactionLoading)"
+                                @onclick="HandleLikeAsync">
+                                Like
+                            </button>
+                            <button
+                                class="@GetReactionButtonClass(isLike: false)"
+                                type="button"
+                                aria-pressed="@(_currentUserIsLiked == false)"
+                                disabled="@(_isActionBusy || _isReactionLoading)"
+                                @onclick="HandleDislikeAsync">
+                                Dislike
+                            </button>
+                        }
+                        else
+                        {
+                            <a class="btn btn--primary btn--compact" href="/login">Log in to react</a>
+                        }
+                    </div>
+
+                    @if (IsSelectedPhotoOwner)
+                    {
+                        <form class="photo-modal__rename" @onsubmit="HandleRenameAsync" @onsubmit:preventDefault>
+                            <label class="visually-hidden" for="photo-rename">Photo name</label>
+                            <input
+                                id="photo-rename"
+                                class="photo-modal__rename-input"
+                                type="text"
+                                maxlength="100"
+                                @bind="_renameText"
+                                @bind:event="oninput"
+                                disabled="@_isActionBusy"
+                                autocomplete="off" />
+                            <button
+                                class="btn btn--primary btn--compact"
+                                type="submit"
+                                disabled="@(_isActionBusy || !CanRename)">
+                                Save name
+                            </button>
+                        </form>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_actionErrorMessage))
+                    {
+                        <p class="photo-modal__action-error" role="alert">@_actionErrorMessage</p>
+                    }
+                </div>
             }
         </div>
     </div>
@@ -190,10 +258,13 @@
 
     private string _searchText = string.Empty;
     private string _activeSearch = string.Empty;
+    private string _renameText = string.Empty;
     private string? _errorMessage;
     private string? _modalErrorMessage;
-    private string? _selectedPhotoName;
+    private string? _actionErrorMessage;
     private string? _originalObjectUrl;
+    private PhotoDto? _selectedPhoto;
+    private bool? _currentUserIsLiked;
     private int _page = 1;
     private bool _isLoading = true;
     private bool _isSearchMode;
@@ -201,8 +272,21 @@
     private bool _canGoPrevious;
     private bool _isModalOpen;
     private bool _isOriginalLoading;
+    private bool _isReactionLoading;
+    private bool _isActionBusy;
     private bool _shouldFocusModal;
     private ElementReference _modalRoot;
+
+    private bool IsSelectedPhotoOwner =>
+        _selectedPhoto is not null &&
+        Auth.IsAuthenticated &&
+        Guid.TryParse(Auth.UserId, out var userId) &&
+        _selectedPhoto.OwnerId == userId;
+
+    private bool CanRename =>
+        !string.IsNullOrWhiteSpace(_renameText) &&
+        _selectedPhoto is not null &&
+        !string.Equals(_renameText.Trim(), _selectedPhoto.Name, StringComparison.Ordinal);
 
     protected override async Task OnInitializedAsync()
     {
@@ -335,27 +419,37 @@
 
         _isModalOpen = true;
         _isOriginalLoading = true;
+        _isReactionLoading = Auth.IsAuthenticated;
         _modalErrorMessage = null;
-        _selectedPhotoName = photo.Name;
+        _actionErrorMessage = null;
+        _selectedPhoto = photo;
+        _currentUserIsLiked = null;
+        _renameText = photo.Name;
         _originalObjectUrl = null;
         _shouldFocusModal = true;
 
         StateHasChanged();
 
+        var originalTask = PhotoApi.GetOriginalPhotoAsync(photo.Id);
+        var reactionTask = Auth.IsAuthenticated
+            ? PhotoApi.GetMyReactionAsync(photo.Id)
+            : Task.FromResult((Success: false, IsLiked: (bool?)null));
+
         try
         {
-            var original = await PhotoApi.GetOriginalPhotoAsync(photo.Id);
+            var original = await originalTask;
 
             if (original is null)
             {
                 _modalErrorMessage = "Could not load the original photo.";
-                return;
             }
-
-            _originalObjectUrl = await Js.InvokeAsync<string>(
-                "photoAlbum.createObjectUrl",
-                original.ContentType,
-                original.Bytes);
+            else
+            {
+                _originalObjectUrl = await Js.InvokeAsync<string>(
+                    "photoAlbum.createObjectUrl",
+                    original.ContentType,
+                    original.Bytes);
+            }
         }
         catch (Exception)
         {
@@ -364,6 +458,153 @@
         finally
         {
             _isOriginalLoading = false;
+        }
+
+        try
+        {
+            var (success, isLiked) = await reactionTask;
+
+            if (success)
+            {
+                _currentUserIsLiked = isLiked;
+            }
+        }
+        catch (Exception)
+        {
+            _currentUserIsLiked = null;
+        }
+        finally
+        {
+            _isReactionLoading = false;
+        }
+    }
+
+    private async Task HandleLikeAsync()
+    {
+        if (_selectedPhoto is null ||
+            _isActionBusy)
+        {
+            return;
+        }
+
+        _isActionBusy = true;
+        _actionErrorMessage = null;
+
+        try
+        {
+            var (updated, errorMessage) = await PhotoApi.LikePhotoAsync(_selectedPhoto.Id);
+
+            if (updated is null)
+            {
+                _actionErrorMessage = errorMessage ?? "Could not like this photo.";
+                return;
+            }
+
+            ApplyPhotoMutation(updated);
+            _currentUserIsLiked = _currentUserIsLiked == true ? null : true;
+        }
+        catch (Exception)
+        {
+            _actionErrorMessage = "Could not like this photo.";
+        }
+        finally
+        {
+            _isActionBusy = false;
+        }
+    }
+
+    private async Task HandleDislikeAsync()
+    {
+        if (_selectedPhoto is null ||
+            _isActionBusy)
+        {
+            return;
+        }
+
+        _isActionBusy = true;
+        _actionErrorMessage = null;
+
+        try
+        {
+            var (updated, errorMessage) = await PhotoApi.DislikePhotoAsync(_selectedPhoto.Id);
+
+            if (updated is null)
+            {
+                _actionErrorMessage = errorMessage ?? "Could not dislike this photo.";
+                return;
+            }
+
+            ApplyPhotoMutation(updated);
+            _currentUserIsLiked = _currentUserIsLiked == false ? null : false;
+        }
+        catch (Exception)
+        {
+            _actionErrorMessage = "Could not dislike this photo.";
+        }
+        finally
+        {
+            _isActionBusy = false;
+        }
+    }
+
+    private async Task HandleRenameAsync()
+    {
+        if (_selectedPhoto is null ||
+            _isActionBusy ||
+            !CanRename)
+        {
+            return;
+        }
+
+        _isActionBusy = true;
+        _actionErrorMessage = null;
+
+        try
+        {
+            var (updated, errorMessage) = await PhotoApi.RenamePhotoAsync(
+                _selectedPhoto.Id,
+                _renameText.Trim());
+
+            if (updated is null)
+            {
+                _actionErrorMessage = errorMessage ?? "Could not rename this photo.";
+                return;
+            }
+
+            ApplyPhotoMutation(updated);
+            _renameText = updated.Name;
+        }
+        catch (Exception)
+        {
+            _actionErrorMessage = "Could not rename this photo.";
+        }
+        finally
+        {
+            _isActionBusy = false;
+        }
+    }
+
+    private void ApplyPhotoMutation(PhotoMutationResponseDto updated)
+    {
+        if (_selectedPhoto is null)
+        {
+            return;
+        }
+
+        var next = _selectedPhoto with
+        {
+            Name = updated.Name,
+            LikesCount = updated.LikesCount,
+            DislikesCount = updated.DislikesCount
+        };
+
+        _selectedPhoto = next;
+
+        var index = _photos.FindIndex(photo => photo.Id == next.Id);
+
+        if (index >= 0)
+        {
+            _photos[index] = next;
         }
     }
 
@@ -384,10 +625,26 @@
 
         _isModalOpen = false;
         _isOriginalLoading = false;
+        _isReactionLoading = false;
+        _isActionBusy = false;
         _modalErrorMessage = null;
-        _selectedPhotoName = null;
+        _actionErrorMessage = null;
+        _selectedPhoto = null;
+        _currentUserIsLiked = null;
+        _renameText = string.Empty;
 
         await RevokeOriginalObjectUrlAsync();
+    }
+
+    private string GetReactionButtonClass(bool isLike)
+    {
+        var isSelected = isLike
+            ? _currentUserIsLiked == true
+            : _currentUserIsLiked == false;
+
+        return isSelected
+            ? "btn btn--ghost btn--compact photo-modal__reaction photo-modal__reaction--selected"
+            : "btn btn--ghost btn--compact photo-modal__reaction";
     }
 
     private async Task RevokeOriginalObjectUrlAsync()

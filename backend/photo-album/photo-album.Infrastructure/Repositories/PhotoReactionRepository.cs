@@ -42,4 +42,13 @@ internal sealed class PhotoReactionRepository : IPhotoReactionRepository
 
         return await _context.SaveChangesAsync(cancellationToken) > 0;
     }
+
+    public async Task<bool> DeleteAsync(
+        PhotoReactionEntity reaction,
+        CancellationToken cancellationToken = default)
+    {
+        _context.PhotoReactions.Remove(reaction);
+
+        return await _context.SaveChangesAsync(cancellationToken) > 0;
+    }
 }

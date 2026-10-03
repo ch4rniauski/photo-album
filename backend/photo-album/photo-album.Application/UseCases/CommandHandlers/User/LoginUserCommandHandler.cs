@@ -3,11 +3,13 @@ using MediatR;
 using Microsoft.AspNetCore.Identity;
 using photo_album.Application.Common.Errors;
 using photo_album.Application.Common.Results;
+using photo_album.Application.Contracts.Activity;
 using photo_album.Application.Contracts.Jwt;
 using photo_album.Application.Contracts.Repositories;
 using photo_album.Application.Dto.User.Requests;
 using photo_album.Application.Dto.User.Responses;
 using photo_album.Application.UseCases.Commands.User;
+using photo_album.Domain.Constants;
 using photo_album.Domain.Entities;
 
 namespace photo_album.Application.UseCases.CommandHandlers.User;
@@ -18,17 +20,20 @@ internal sealed class LoginUserCommandHandler : IRequestHandler<LoginUserCommand
     private readonly ITokenProvider _tokenProvider;
     private readonly IValidator<LoginUserRequestDto> _validator;
     private readonly IPasswordHasher<UserEntity> _passwordHasher;
+    private readonly IUserActivityLogService _activityLogService;
 
     public LoginUserCommandHandler(
         IUserRepository userRepository,
         ITokenProvider tokenProvider,
         IValidator<LoginUserRequestDto> validator,
-        IPasswordHasher<UserEntity> passwordHasher)
+        IPasswordHasher<UserEntity> passwordHasher,
+        IUserActivityLogService activityLogService)
     {
         _userRepository = userRepository;
         _tokenProvider = tokenProvider;
         _validator = validator;
         _passwordHasher = passwordHasher;
+        _activityLogService = activityLogService;
     }
 
     public async Task<Result<LoginUserResponseDto>> Handle(
@@ -50,6 +55,13 @@ internal sealed class LoginUserCommandHandler : IRequestHandler<LoginUserCommand
 
         if (user is null)
         {
+            await _activityLogService.LogAsync(
+                userId: null,
+                userName: request.Request.Email,
+                action: UserActivityActions.LoginFailed,
+                details: "User not found",
+                cancellationToken: cancellationToken);
+
             return Result<LoginUserResponseDto>.Failure(
                 Error.NotFound($"User with Email {request.Request.Email} does not exist")
             );
@@ -62,6 +74,13 @@ internal sealed class LoginUserCommandHandler : IRequestHandler<LoginUserCommand
 
         if (passwordVerificationResult != PasswordVerificationResult.Success)
         {
+            await _activityLogService.LogAsync(
+                user.Id,
+                user.UserName,
+                UserActivityActions.LoginFailed,
+                details: "Invalid password",
+                cancellationToken: cancellationToken);
+
             return Result<LoginUserResponseDto>.Failure(
                 Error.Unauthorized("Invalid password")
             );
@@ -81,10 +100,17 @@ internal sealed class LoginUserCommandHandler : IRequestHandler<LoginUserCommand
             );
         }
 
+        await _activityLogService.LogAsync(
+            user.Id,
+            user.UserName,
+            UserActivityActions.Login,
+            cancellationToken: cancellationToken);
+
         var response = new LoginUserResponseDto(
             accessToken,
             refreshToken,
-            user.Id.ToString());
+            user.Id.ToString(),
+            user.Role);
 
         return Result<LoginUserResponseDto>.Success(response);
     }

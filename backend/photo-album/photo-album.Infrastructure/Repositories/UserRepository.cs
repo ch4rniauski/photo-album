@@ -62,4 +62,22 @@ internal sealed class UserRepository : IUserRepository
         return _context.Users
             .AnyAsync(user => user.UserName == userName, cancellationToken);
     }
+
+    public async Task<(IReadOnlyList<UserEntity> Items, int TotalCount)> GetPagedAsync(
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.Users.AsNoTracking();
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderBy(user => user.UserName)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
 }

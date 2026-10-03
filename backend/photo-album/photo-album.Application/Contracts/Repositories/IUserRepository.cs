@@ -15,4 +15,9 @@ public interface IUserRepository
     Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken = default);
 
     Task<bool> ExistsByUserNameAsync(string userName, CancellationToken cancellationToken = default);
+
+    Task<(IReadOnlyList<UserEntity> Items, int TotalCount)> GetPagedAsync(
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

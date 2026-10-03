@@ -30,10 +30,6 @@ internal sealed class UserEntityConfiguration : IEntityTypeConfiguration<UserEnt
             .IsRequired()
             .HasMaxLength(500);
 
-        builder.Property(user => user.DisplayName)
-            .IsRequired()
-            .HasMaxLength(100);
-
         builder.Property(user => user.Role)
             .IsRequired()
             .HasMaxLength(50);
