@@ -1,0 +1,279 @@
+@page "/upload"
+@inject PhotoApiService PhotoApi
+@inject AuthService Auth
+@inject NavigationManager Navigation
+@inject IJSRuntime Js
+@implements IAsyncDisposable
+
+<PageTitle>Upload · Photo Album</PageTitle>
+
+<main class="auth">
+    <section class="auth__panel auth__panel--wide">
+        <a class="brand brand--compact" href="/">
+            <span class="brand__mark" aria-hidden="true"></span>
+            <span class="brand__name">Photo Album</span>
+        </a>
+
+        <h1 class="auth__title">Upload a photo</h1>
+        <p class="auth__subtitle">JPEG, PNG, GIF, or WebP — up to 5 MB.</p>
+
+        <form class="auth__form" @onsubmit="HandleUploadAsync" @onsubmit:preventDefault>
+            <div class="field">
+                <label for="photo-name">Name</label>
+                <input
+                    id="photo-name"
+                    class="field__input"
+                    type="text"
+                    maxlength="100"
+                    @bind="_name"
+                    @bind:event="oninput"
+                    autocomplete="off"
+                    disabled="@_isSubmitting" />
+            </div>
+
+            <div class="field">
+                <label for="photo-file">Image</label>
+                <InputFile
+                    id="photo-file"
+                    class="field__file"
+                    OnChange="HandleFileSelectedAsync"
+                    accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp"
+                    disabled="@_isSubmitting" />
+                @if (!string.IsNullOrWhiteSpace(_selectedFileName))
+                {
+                    <p class="field__hint">@_selectedFileName · @_selectedFileSizeLabel</p>
+                }
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_previewObjectUrl))
+            {
+                <div class="upload-preview">
+                    <img class="upload-preview__image" src="@_previewObjectUrl" alt="Selected photo preview" />
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(_errorMessage))
+            {
+                <div class="banner banner--error" role="alert">@_errorMessage</div>
+            }
+
+            <button class="btn btn--primary btn--block" type="submit" disabled="@(!CanUpload || _isSubmitting)">
+                @(_isSubmitting ? "Uploading…" : "Upload photo")
+            </button>
+        </form>
+
+        <p class="auth__footer">
+            <a href="/">Back to gallery</a>
+        </p>
+    </section>
+</main>
+
+@code {
+    private const long MaxFileSizeBytes = 5 * 1024 * 1024;
+
+    private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/gif",
+        "image/webp"
+    };
+
+    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".webp"
+    };
+
+    private string _name = string.Empty;
+    private string? _selectedFileName;
+    private string? _selectedFileSizeLabel;
+    private string? _selectedContentType;
+    private string? _previewObjectUrl;
+    private string? _errorMessage;
+    private byte[]? _fileBytes;
+    private bool _isSubmitting;
+
+    private bool CanUpload =>
+        !string.IsNullOrWhiteSpace(_name) &&
+        _fileBytes is { Length: > 0 } &&
+        !string.IsNullOrWhiteSpace(_selectedFileName);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.InitializeAsync();
+
+        if (!Auth.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+        }
+    }
+
+    private async Task HandleFileSelectedAsync(InputFileChangeEventArgs args)
+    {
+        _errorMessage = null;
+        _fileBytes = null;
+        _selectedFileName = null;
+        _selectedFileSizeLabel = null;
+        _selectedContentType = null;
+
+        await RevokePreviewObjectUrlAsync();
+
+        var file = args.File;
+
+        if (file is null)
+        {
+            return;
+        }
+
+        var extension = Path.GetExtension(file.Name);
+
+        if (!AllowedExtensions.Contains(extension))
+        {
+            _errorMessage = "Only JPEG, PNG, GIF and WebP images are allowed.";
+            return;
+        }
+
+        if (file.Size <= 0 ||
+            file.Size > MaxFileSizeBytes)
+        {
+            _errorMessage = "Image file size must not exceed 5 MB.";
+            return;
+        }
+
+        var contentType = string.IsNullOrWhiteSpace(file.ContentType)
+            ? GuessContentType(extension)
+            : file.ContentType;
+
+        if (!AllowedContentTypes.Contains(contentType))
+        {
+            _errorMessage = "Only JPEG, PNG, GIF and WebP images are allowed.";
+            return;
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream(MaxFileSizeBytes);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+
+            _fileBytes = buffer.ToArray();
+            _selectedFileName = file.Name;
+            _selectedFileSizeLabel = FormatFileSize(_fileBytes.Length);
+            _selectedContentType = contentType;
+
+            if (string.IsNullOrWhiteSpace(_name))
+            {
+                _name = Path.GetFileNameWithoutExtension(file.Name);
+            }
+
+            _previewObjectUrl = await Js.InvokeAsync<string>(
+                "photoAlbum.createObjectUrl",
+                contentType,
+                _fileBytes);
+        }
+        catch (IOException)
+        {
+            _errorMessage = "Image file size must not exceed 5 MB.";
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Could not read the selected image.";
+        }
+    }
+
+    private async Task HandleUploadAsync()
+    {
+        if (!CanUpload ||
+            _isSubmitting ||
+            _fileBytes is null ||
+            string.IsNullOrWhiteSpace(_selectedFileName))
+        {
+            return;
+        }
+
+        _errorMessage = null;
+        _isSubmitting = true;
+
+        try
+        {
+            await using var content = new MemoryStream(_fileBytes, writable: false);
+            var (photo, errorMessage) = await PhotoApi.UploadPhotoAsync(
+                content,
+                _selectedFileName,
+                _selectedContentType ?? "application/octet-stream",
+                _name.Trim());
+
+            if (photo is null)
+            {
+                _errorMessage = errorMessage ?? "Could not upload this photo.";
+                return;
+            }
+
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Could not reach the API. Try again later.";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private static string GuessContentType(string extension) =>
+        extension.ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            _ => "application/octet-stream"
+        };
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024)
+        {
+            return $"{bytes} B";
+        }
+
+        var kilobytes = bytes / 1024d;
+
+        if (kilobytes < 1024)
+        {
+            return $"{kilobytes:0.#} KB";
+        }
+
+        return $"{kilobytes / 1024d:0.##} MB";
+    }
+
+    private async Task RevokePreviewObjectUrlAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_previewObjectUrl))
+        {
+            return;
+        }
+
+        var url = _previewObjectUrl;
+        _previewObjectUrl = null;
+
+        try
+        {
+            await Js.InvokeVoidAsync("photoAlbum.revokeObjectUrl", url);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await RevokePreviewObjectUrlAsync();
+    }
+}

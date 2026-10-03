@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using frontend.Models;
 
@@ -116,6 +117,46 @@ public sealed class PhotoApiService
             $"api/Photos/{id}",
             new RenamePhotoRequestDto(name),
             cancellationToken);
+    }
+
+    public async Task<(PhotoMutationResponseDto? Photo, string? ErrorMessage)> UploadPhotoAsync(
+        Stream content,
+        string fileName,
+        string contentType,
+        string name,
+        CancellationToken cancellationToken = default)
+    {
+        await using var buffer = new MemoryStream();
+        await content.CopyToAsync(buffer, cancellationToken);
+        var bytes = buffer.ToArray();
+
+        using var response = await _authService.SendAuthorizedAsync(
+            () =>
+            {
+                var request = new HttpRequestMessage(HttpMethod.Post, "api/Photos");
+                var form = new MultipartFormDataContent();
+                var fileContent = new ByteArrayContent(bytes);
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue(
+                    string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType);
+
+                form.Add(fileContent, "photo", fileName);
+                form.Add(new StringContent(name), "name");
+                request.Content = form;
+
+                return request;
+            },
+            cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var photo = await response.Content.ReadFromJsonAsync<PhotoMutationResponseDto>(cancellationToken);
+
+            return (photo, null);
+        }
+
+        var errorMessage = await TryReadErrorDetailAsync(response, cancellationToken);
+
+        return (null, errorMessage ?? "Upload failed.");
     }
 
     public string ResolveThumbnailUrl(string thumbnailUrl)

@@ -38,6 +38,7 @@
         <div class="site-header__actions">
             @if (Auth.IsAuthenticated)
             {
+                <a class="btn btn--primary" href="/upload">Upload</a>
                 @if (Auth.IsAdmin)
                 {
                     <a class="btn btn--ghost" href="/admin/users">Admin</a>
@@ -87,7 +88,14 @@
             }
             else
             {
-                <text>No photos yet. Upload some from the API to fill this wall.</text>
+                @if (Auth.IsAuthenticated)
+                {
+                    <text>No photos yet. <a href="/upload">Upload your first photo</a>.</text>
+                }
+                else
+                {
+                    <text>No photos yet. <a href="/login">Log in</a> to upload.</text>
+                }
             }
         </div>
     }

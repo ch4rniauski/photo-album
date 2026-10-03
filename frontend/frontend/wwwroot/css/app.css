@@ -306,6 +306,14 @@ input {
     font-size: 0.9rem;
 }
 
+.site-header__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
 .gallery-status {
     padding: 3rem 1rem;
     text-align: center;
@@ -313,6 +321,11 @@ input {
     border: 1px dashed var(--line);
     border-radius: var(--radius);
     background: rgba(255, 255, 255, 0.45);
+}
+
+.gallery-status a {
+    color: var(--accent-deep);
+    font-weight: 600;
 }
 
 .photo-modal {
@@ -547,6 +560,53 @@ input {
     box-shadow: var(--shadow);
     backdrop-filter: blur(12px);
     animation: rise-in 0.5s ease both;
+}
+
+.auth__panel--wide {
+    width: min(100%, 520px);
+}
+
+.field__file {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px dashed rgba(15, 122, 108, 0.35);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--ink-soft);
+    cursor: pointer;
+}
+
+.field__file:hover:not(:disabled),
+.field__file:focus {
+    border-color: rgba(15, 122, 108, 0.55);
+    box-shadow: 0 0 0 4px var(--accent-glow);
+    outline: none;
+}
+
+.field__file:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.field__hint {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+}
+
+.upload-preview {
+    overflow: hidden;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    background: linear-gradient(160deg, #c9d7e2, #e8eef3);
+}
+
+.upload-preview__image {
+    display: block;
+    width: 100%;
+    max-height: 280px;
+    object-fit: contain;
+    background: rgba(255, 255, 255, 0.55);
 }
 
 .auth__title {
