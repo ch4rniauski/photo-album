@@ -255,8 +255,21 @@ input {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    width: 100%;
     animation: rise-in 0.55s ease both;
     cursor: pointer;
+}
+
+.photo-card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
 }
 
 .photo-card:nth-child(2) { animation-delay: 0.04s; }
@@ -266,6 +279,7 @@ input {
 .photo-card:nth-child(6) { animation-delay: 0.2s; }
 
 .photo-card__frame {
+    display: block;
     position: relative;
     overflow: hidden;
     aspect-ratio: 4 / 5;
@@ -287,10 +301,12 @@ input {
 }
 
 .photo-card__meta {
+    display: block;
     padding: 0 0.15rem;
 }
 
 .photo-card__title {
+    display: block;
     margin: 0;
     font-family: var(--font-display);
     font-size: 1rem;
@@ -299,9 +315,9 @@ input {
 }
 
 .photo-card__stats {
-    margin: 0.35rem 0 0;
     display: flex;
     gap: 0.45rem;
+    margin: 0.35rem 0 0;
     color: var(--ink-soft);
     font-size: 0.9rem;
 }

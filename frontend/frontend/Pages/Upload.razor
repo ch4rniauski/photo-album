@@ -36,7 +36,7 @@
                 <InputFile
                     id="photo-file"
                     class="field__file"
-                    OnChange="HandleFileSelectedAsync"
+                    OnChange="@HandleFileSelectedAsync"
                     accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp"
                     disabled="@_isSubmitting" />
                 @if (!string.IsNullOrWhiteSpace(_selectedFileName))
@@ -124,12 +124,6 @@
         await RevokePreviewObjectUrlAsync();
 
         var file = args.File;
-
-        if (file is null)
-        {
-            return;
-        }
-
         var extension = Path.GetExtension(file.Name);
 
         if (!AllowedExtensions.Contains(extension))

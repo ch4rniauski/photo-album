@@ -104,29 +104,27 @@
         <section class="gallery" aria-label="Photo gallery">
             @foreach (var photo in _photos)
             {
-                <article
+                <button
+                    type="button"
                     class="photo-card"
                     @key="photo.Id"
-                    role="button"
-                    tabindex="0"
-                    @onclick="() => OpenOriginalAsync(photo)"
-                    @onkeydown="(e) => HandlePhotoKeyDownAsync(e, photo)">
-                    <div class="photo-card__frame">
+                    @onclick="() => OpenOriginalAsync(photo)">
+                    <span class="photo-card__frame">
                         <img
                             class="photo-card__image"
                             src="@PhotoApi.ResolveThumbnailUrl(photo.ThumbnailUrl)"
                             alt="@photo.Name"
                             loading="lazy" />
-                    </div>
-                    <div class="photo-card__meta">
-                        <h2 class="photo-card__title">@photo.Name</h2>
-                        <p class="photo-card__stats">
+                    </span>
+                    <span class="photo-card__meta">
+                        <span class="photo-card__title">@photo.Name</span>
+                        <span class="photo-card__stats">
                             <span>@FormatLikes(photo.LikesCount)</span>
                             <span aria-hidden="true">·</span>
                             <span>@FormatDislikes(photo.DislikesCount)</span>
-                        </p>
-                    </div>
-                </article>
+                        </span>
+                    </span>
+                </button>
             }
         </section>
     }
@@ -411,14 +409,6 @@
     {
         await Auth.LogoutAsync();
         Navigation.NavigateTo("/");
-    }
-
-    private async Task HandlePhotoKeyDownAsync(KeyboardEventArgs args, PhotoDto photo)
-    {
-        if (args.Key is "Enter" or " ")
-        {
-            await OpenOriginalAsync(photo);
-        }
     }
 
     private async Task OpenOriginalAsync(PhotoDto photo)
