@@ -510,7 +510,7 @@ input {
     z-index: 100;
     display: grid;
     place-items: center;
-    padding: 1.5rem;
+    padding: 2rem 1.5rem;
     background: rgba(12, 20, 28, 0.72);
     backdrop-filter: blur(8px);
     outline: none;
@@ -544,9 +544,9 @@ input {
 
 .photo-modal__content {
     display: grid;
-    gap: 0.9rem;
-    width: min(96vw, 920px);
-    max-height: 92vh;
+    gap: 0.7rem;
+    width: min(86vw, 760px);
+    max-height: 86vh;
     outline: none;
     animation: modal-scale-in 0.22s ease both;
 }
@@ -554,7 +554,7 @@ input {
 .photo-modal__image {
     display: block;
     max-width: 100%;
-    max-height: min(68vh, 720px);
+    max-height: min(54vh, 560px);
     width: auto;
     height: auto;
     margin: 0 auto;
@@ -566,8 +566,8 @@ input {
 
 .photo-modal__panel {
     display: grid;
-    gap: 0.75rem;
-    padding: 0.95rem 1.05rem;
+    gap: 0.6rem;
+    padding: 0.8rem 0.95rem;
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 14px;
     background: rgba(20, 33, 43, 0.72);
