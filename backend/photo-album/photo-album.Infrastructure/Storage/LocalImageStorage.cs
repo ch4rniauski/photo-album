@@ -73,6 +73,13 @@ internal sealed class LocalImageStorage : IImageStorage
         }
     }
 
+    public bool ExistsOriginal(string storedFileName)
+    {
+        var originalPath = Path.Combine(_settings.OriginalsPath, storedFileName);
+
+        return File.Exists(originalPath);
+    }
+
     public Stream? OpenOriginal(string storedFileName)
     {
         var originalPath = Path.Combine(_settings.OriginalsPath, storedFileName);

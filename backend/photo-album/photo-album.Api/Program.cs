@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.OpenApi;
 using photo_album.Api.Extensions;
+using photo_album.Api.Middleware;
 using photo_album.Application.Extensions;
 using photo_album.Application.Validators.Photo;
 using photo_album.Infrastructure.Extensions;
@@ -92,5 +93,6 @@ app.MapControllers();
 
 await app.ApplyMigrationsAsync();
 await app.CheckDbPendingMigrationsAsync();
+await OrphanedPhotosCleanupMiddleware.RunOnceAsync(app);
 
 await app.RunAsync();

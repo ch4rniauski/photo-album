@@ -24,4 +24,10 @@ public interface IPhotoRepository
         int page,
         int pageSize,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<PhotoEntity>> GetAllAsync(CancellationToken cancellationToken = default);
+
+    Task<int> DeleteRangeAsync(
+        IReadOnlyCollection<PhotoEntity> photos,
+        CancellationToken cancellationToken = default);
 }

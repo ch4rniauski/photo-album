@@ -74,6 +74,33 @@ internal sealed class PhotoRepository : IPhotoRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<PhotoEntity>> GetAllAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Photos
+            .AsNoTracking()
+            .OrderBy(photo => photo.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<int> DeleteRangeAsync(
+        IReadOnlyCollection<PhotoEntity> photos,
+        CancellationToken cancellationToken = default)
+    {
+        if (photos.Count == 0)
+        {
+            return 0;
+        }
+
+        var photoIds = photos
+            .Select(photo => photo.Id)
+            .ToList();
+
+        return await _context.Photos
+            .Where(photo => photoIds.Contains(photo.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+
     private static string EscapeLikePattern(string value)
     {
         return value
