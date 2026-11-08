@@ -255,7 +255,7 @@
                                 }
                             </select>
                             <button
-                                class="btn btn--ghost btn--compact"
+                                class="@(CanMove ? "btn btn--primary btn--compact photo-modal__move-submit photo-modal__move-submit--ready" : "btn btn--ghost btn--compact photo-modal__move-submit")"
                                 type="submit"
                                 disabled="@(_isActionBusy || !CanMove)">
                                 Move
