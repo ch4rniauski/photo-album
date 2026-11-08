@@ -9,6 +9,8 @@ public interface IImageStorage
 
     bool ExistsOriginal(string storedFileName);
 
+    void Delete(string originalFileName, string thumbnailFileName);
+
     Stream? OpenOriginal(string storedFileName);
 
     Stream? OpenThumbnail(string storedFileName);

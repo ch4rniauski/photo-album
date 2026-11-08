@@ -11,6 +11,7 @@ public static class UserActivityActions
     public const string RemoveLikePhoto = "RemoveLikePhoto";
     public const string RemoveDislikePhoto = "RemoveDislikePhoto";
     public const string RenamePhoto = "RenamePhoto";
+    public const string DeletePhoto = "DeletePhoto";
     public const string CreateFolder = "CreateFolder";
     public const string MovePhotoToFolder = "MovePhotoToFolder";
 }

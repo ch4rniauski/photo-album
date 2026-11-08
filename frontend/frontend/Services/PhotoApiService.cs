@@ -131,6 +131,24 @@ public sealed class PhotoApiService
             cancellationToken);
     }
 
+    public async Task<(bool Success, string? ErrorMessage)> DeletePhotoAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _authService.SendAuthorizedAsync(
+            () => new HttpRequestMessage(HttpMethod.Delete, $"api/Photos/{id}"),
+            cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            return (true, null);
+        }
+
+        var errorMessage = await TryReadErrorDetailAsync(response, cancellationToken);
+
+        return (false, errorMessage ?? "Could not delete this photo.");
+    }
+
     public async Task<(PhotoMutationResponseDto? Photo, string? ErrorMessage)> UploadPhotoAsync(
         Stream content,
         string fileName,

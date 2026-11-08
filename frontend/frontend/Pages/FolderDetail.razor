@@ -261,6 +261,16 @@
                                 Move
                             </button>
                         </form>
+
+                        <div class="photo-modal__danger">
+                            <button
+                                class="btn btn--danger btn--compact"
+                                type="button"
+                                disabled="@_isActionBusy"
+                                @onclick="HandleDeleteAsync">
+                                Delete photo
+                            </button>
+                        </div>
                     }
 
                     @if (!string.IsNullOrWhiteSpace(_actionErrorMessage))
@@ -696,6 +706,59 @@
         catch (Exception)
         {
             _actionErrorMessage = "Could not move this photo.";
+        }
+        finally
+        {
+            _isActionBusy = false;
+        }
+    }
+
+    private async Task HandleDeleteAsync()
+    {
+        if (_selectedPhoto is null ||
+            _isActionBusy)
+        {
+            return;
+        }
+
+        var confirmed = await Js.InvokeAsync<bool>(
+            "confirm",
+            $"Delete “{_selectedPhoto.Name}”? This cannot be undone.");
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        _isActionBusy = true;
+        _actionErrorMessage = null;
+
+        try
+        {
+            var photoId = _selectedPhoto.Id;
+            var (success, errorMessage) = await PhotoApi.DeletePhotoAsync(photoId);
+
+            if (!success)
+            {
+                _actionErrorMessage = errorMessage ?? "Could not delete this photo.";
+                return;
+            }
+
+            _photos.RemoveAll(photo => photo.Id == photoId);
+
+            if (_folder is not null)
+            {
+                _folder = _folder with
+                {
+                    PhotosCount = Math.Max(0, _folder.PhotosCount - 1)
+                };
+            }
+
+            await CloseModalAsync();
+        }
+        catch (Exception)
+        {
+            _actionErrorMessage = "Could not delete this photo.";
         }
         finally
         {

@@ -80,6 +80,12 @@ internal sealed class LocalImageStorage : IImageStorage
         return File.Exists(originalPath);
     }
 
+    public void Delete(string originalFileName, string thumbnailFileName)
+    {
+        DeleteIfExists(Path.Combine(_settings.OriginalsPath, originalFileName));
+        DeleteIfExists(Path.Combine(_settings.ThumbnailsPath, thumbnailFileName));
+    }
+
     public Stream? OpenOriginal(string storedFileName)
     {
         var originalPath = Path.Combine(_settings.OriginalsPath, storedFileName);
@@ -102,5 +108,13 @@ internal sealed class LocalImageStorage : IImageStorage
         }
 
         return File.OpenRead(thumbnailPath);
+    }
+
+    private static void DeleteIfExists(string path)
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
     }
 }

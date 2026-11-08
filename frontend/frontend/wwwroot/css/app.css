@@ -199,6 +199,18 @@ input {
     color: var(--ink);
 }
 
+.btn--danger {
+    background: rgba(180, 35, 24, 0.92);
+    color: #fff;
+    font-weight: 600;
+}
+
+.btn--danger:hover:not(:disabled) {
+    background: #8f1a12;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(180, 35, 24, 0.28);
+}
+
 .btn:disabled,
 .search__button:disabled {
     opacity: 0.5;
@@ -355,6 +367,13 @@ input {
     flex-wrap: wrap;
     gap: 0.55rem;
     align-items: center;
+}
+
+.photo-modal__danger {
+    display: flex;
+    justify-content: flex-start;
+    padding-top: 0.15rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .photo-modal__move-select {
