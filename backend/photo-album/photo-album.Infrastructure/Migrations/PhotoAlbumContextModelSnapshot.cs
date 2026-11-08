@@ -22,6 +22,32 @@ namespace photo_album.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("photo_album.Domain.Entities.FolderEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("Folders", (string)null);
+                });
+
             modelBuilder.Entity("photo_album.Domain.Entities.PhotoEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -35,6 +61,9 @@ namespace photo_album.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasDefaultValue(0);
+
+                    b.Property<Guid?>("FolderId")
+                        .HasColumnType("uuid");
 
                     b.Property<int>("LikesCount")
                         .ValueGeneratedOnAdd()
@@ -60,6 +89,8 @@ namespace photo_album.Infrastructure.Migrations
                         .HasColumnType("character varying(260)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("FolderId");
 
                     b.HasIndex("OwnerId");
 
@@ -169,13 +200,31 @@ namespace photo_album.Infrastructure.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
+            modelBuilder.Entity("photo_album.Domain.Entities.FolderEntity", b =>
+                {
+                    b.HasOne("photo_album.Domain.Entities.UserEntity", "Owner")
+                        .WithMany("Folders")
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Owner");
+                });
+
             modelBuilder.Entity("photo_album.Domain.Entities.PhotoEntity", b =>
                 {
+                    b.HasOne("photo_album.Domain.Entities.FolderEntity", "Folder")
+                        .WithMany("Photos")
+                        .HasForeignKey("FolderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("photo_album.Domain.Entities.UserEntity", "Owner")
                         .WithMany("Photos")
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Folder");
 
                     b.Navigation("Owner");
                 });
@@ -199,6 +248,11 @@ namespace photo_album.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("photo_album.Domain.Entities.FolderEntity", b =>
+                {
+                    b.Navigation("Photos");
+                });
+
             modelBuilder.Entity("photo_album.Domain.Entities.PhotoEntity", b =>
                 {
                     b.Navigation("Reactions");
@@ -206,6 +260,8 @@ namespace photo_album.Infrastructure.Migrations
 
             modelBuilder.Entity("photo_album.Domain.Entities.UserEntity", b =>
                 {
+                    b.Navigation("Folders");
+
                     b.Navigation("PhotoReactions");
 
                     b.Navigation("Photos");

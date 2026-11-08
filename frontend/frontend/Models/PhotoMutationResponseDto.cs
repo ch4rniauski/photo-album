@@ -7,4 +7,5 @@ public sealed record PhotoMutationResponseDto(
     string ThumbnailFileName,
     int LikesCount,
     int DislikesCount,
-    Guid OwnerId);
+    Guid OwnerId,
+    Guid? FolderId);

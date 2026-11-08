@@ -24,6 +24,7 @@ public static class ServiceCollectionExtensions
 
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IPhotoRepository, PhotoRepository>();
+            services.AddScoped<IFolderRepository, FolderRepository>();
             services.AddScoped<IPhotoReactionRepository, PhotoReactionRepository>();
             services.AddScoped<IUserActivityRepository, UserActivityRepository>();
             services.AddScoped<IPasswordHasher<UserEntity>, PasswordHasher<UserEntity>>();

@@ -22,6 +22,7 @@ internal sealed class UploadPhotoCommandHandler : IRequestHandler<UploadPhotoCom
         RegexOptions.Compiled);
 
     private readonly IPhotoRepository _photoRepository;
+    private readonly IFolderRepository _folderRepository;
     private readonly IUserRepository _userRepository;
     private readonly IImageStorage _imageStorage;
     private readonly IValidator<UploadPhotoRequestDto> _validator;
@@ -30,6 +31,7 @@ internal sealed class UploadPhotoCommandHandler : IRequestHandler<UploadPhotoCom
 
     public UploadPhotoCommandHandler(
         IPhotoRepository photoRepository,
+        IFolderRepository folderRepository,
         IUserRepository userRepository,
         IImageStorage imageStorage,
         IValidator<UploadPhotoRequestDto> validator,
@@ -37,6 +39,7 @@ internal sealed class UploadPhotoCommandHandler : IRequestHandler<UploadPhotoCom
         IUserActivityLogService activityLogService)
     {
         _photoRepository = photoRepository;
+        _folderRepository = folderRepository;
         _userRepository = userRepository;
         _imageStorage = imageStorage;
         _validator = validator;
@@ -66,6 +69,31 @@ internal sealed class UploadPhotoCommandHandler : IRequestHandler<UploadPhotoCom
             return Result<UploadPhotoResponseDto>.Failure(
                 Error.NotFound($"User with id {request.OwnerId} does not exist")
             );
+        }
+
+        Guid? folderId = null;
+
+        if (request.Request.FolderId is not null)
+        {
+            var folder = await _folderRepository.GetByIdAsync(
+                request.Request.FolderId.Value,
+                cancellationToken);
+
+            if (folder is null)
+            {
+                return Result<UploadPhotoResponseDto>.Failure(
+                    Error.NotFound($"Folder with id {request.Request.FolderId.Value} does not exist")
+                );
+            }
+
+            if (folder.OwnerId != request.OwnerId)
+            {
+                return Result<UploadPhotoResponseDto>.Failure(
+                    Error.Forbidden("You can only upload photos into your own folders")
+                );
+            }
+
+            folderId = folder.Id;
         }
 
         var photoId = Guid.NewGuid();
@@ -100,6 +128,7 @@ internal sealed class UploadPhotoCommandHandler : IRequestHandler<UploadPhotoCom
             LikesCount = 0,
             DislikesCount = 0,
             OwnerId = request.OwnerId,
+            FolderId = folderId,
             CreatedAtUtc = DateTime.UtcNow
         };
 

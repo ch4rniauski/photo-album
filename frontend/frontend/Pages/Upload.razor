@@ -1,5 +1,6 @@
 @page "/upload"
 @inject PhotoApiService PhotoApi
+@inject FolderApiService FolderApi
 @inject AuthService Auth
 @inject NavigationManager Navigation
 @inject IJSRuntime Js
@@ -29,6 +30,27 @@
                     @bind:event="oninput"
                     autocomplete="off"
                     disabled="@_isSubmitting" />
+            </div>
+
+            <div class="field">
+                <label for="photo-folder">Folder</label>
+                <select
+                    id="photo-folder"
+                    class="field__input"
+                    @bind="_selectedFolderValue"
+                    disabled="@(_isSubmitting || _isFoldersLoading)">
+                    <option value="">No folder</option>
+                    @foreach (var folder in _folders)
+                    {
+                        <option value="@folder.Id.ToString()">@folder.Name</option>
+                    }
+                </select>
+                @if (_folders.Count == 0 && !_isFoldersLoading)
+                {
+                    <p class="field__hint">
+                        No folders yet. <a href="/folders">Create one</a>.
+                    </p>
+                }
             </div>
 
             <div class="field">
@@ -63,6 +85,12 @@
         </form>
 
         <p class="auth__footer">
+            @if (!string.IsNullOrWhiteSpace(_selectedFolderValue) &&
+                 Guid.TryParse(_selectedFolderValue, out var selectedFolderId))
+            {
+                <a href="@($"/folders/{selectedFolderId}")">Back to folder</a>
+                <span aria-hidden="true"> · </span>
+            }
             <a href="/">Back to gallery</a>
         </p>
     </section>
@@ -89,7 +117,10 @@
         ".webp"
     };
 
+    private readonly List<FolderDto> _folders = [];
+
     private string _name = string.Empty;
+    private string _selectedFolderValue = string.Empty;
     private string? _selectedFileName;
     private string? _selectedFileSizeLabel;
     private string? _selectedContentType;
@@ -97,6 +128,10 @@
     private string? _errorMessage;
     private byte[]? _fileBytes;
     private bool _isSubmitting;
+    private bool _isFoldersLoading;
+
+    [SupplyParameterFromQuery(Name = "folderId")]
+    private Guid? FolderIdFromQuery { get; set; }
 
     private bool CanUpload =>
         !string.IsNullOrWhiteSpace(_name) &&
@@ -110,6 +145,50 @@
         if (!Auth.IsAuthenticated)
         {
             Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadFoldersAsync();
+        ApplyFolderFromQuery();
+    }
+
+    protected override void OnParametersSet()
+    {
+        ApplyFolderFromQuery();
+    }
+
+    private async Task LoadFoldersAsync()
+    {
+        _isFoldersLoading = true;
+
+        try
+        {
+            var (folders, errorMessage) = await FolderApi.GetMyFoldersAsync();
+
+            _folders.Clear();
+            _folders.AddRange(folders);
+
+            if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                _errorMessage = errorMessage;
+            }
+        }
+        catch (Exception)
+        {
+            _folders.Clear();
+        }
+        finally
+        {
+            _isFoldersLoading = false;
+        }
+    }
+
+    private void ApplyFolderFromQuery()
+    {
+        if (FolderIdFromQuery is not null &&
+            _folders.Any(folder => folder.Id == FolderIdFromQuery.Value))
+        {
+            _selectedFolderValue = FolderIdFromQuery.Value.ToString();
         }
     }
 
@@ -195,12 +274,17 @@
 
         try
         {
+            Guid? folderId = string.IsNullOrWhiteSpace(_selectedFolderValue)
+                ? null
+                : Guid.Parse(_selectedFolderValue);
+
             await using var content = new MemoryStream(_fileBytes, writable: false);
             var (photo, errorMessage) = await PhotoApi.UploadPhotoAsync(
                 content,
                 _selectedFileName,
                 _selectedContentType ?? "application/octet-stream",
-                _name.Trim());
+                _name.Trim(),
+                folderId);
 
             if (photo is null)
             {
@@ -208,7 +292,14 @@
                 return;
             }
 
-            Navigation.NavigateTo("/");
+            if (photo.FolderId is not null)
+            {
+                Navigation.NavigateTo($"/folders/{photo.FolderId}");
+            }
+            else
+            {
+                Navigation.NavigateTo("/");
+            }
         }
         catch (Exception)
         {

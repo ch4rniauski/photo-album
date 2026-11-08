@@ -15,6 +15,7 @@ internal sealed class SearchPhotoProfile : Profile
                 src.LikesCount,
                 src.DislikesCount,
                 src.OwnerId,
+                src.FolderId,
                 $"api/Photos/{src.Id}/thumbnail"));
     }
 }

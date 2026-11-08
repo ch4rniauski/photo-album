@@ -18,4 +18,10 @@ public interface IPhotoRepository
         int page,
         int pageSize,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<PhotoEntity>> GetByFolderIdWithPaginationAsync(
+        Guid folderId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

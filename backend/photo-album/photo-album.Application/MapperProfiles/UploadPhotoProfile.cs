@@ -36,6 +36,10 @@ internal sealed class UploadPhotoProfile : Profile
             .ForMember(
                 dest => dest.OwnerId,
                 opt => opt.MapFrom(src => src.OwnerId)
+            )
+            .ForMember(
+                dest => dest.FolderId,
+                opt => opt.MapFrom(src => src.FolderId)
             );
     }
 }

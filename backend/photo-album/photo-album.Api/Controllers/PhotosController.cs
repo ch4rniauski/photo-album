@@ -30,6 +30,7 @@ public sealed class PhotosController : ControllerBase
     public async Task<ActionResult<UploadPhotoResponseDto>> UploadPhoto(
         IFormFile? photo,
         [FromForm] string name,
+        [FromForm] Guid? folderId,
         CancellationToken cancellationToken)
     {
         if (!TryGetUserId(out var ownerId))
@@ -50,7 +51,8 @@ public sealed class PhotosController : ControllerBase
             name,
             photo.ContentType,
             photo.FileName,
-            photo.Length);
+            photo.Length,
+            folderId);
 
         var command = new UploadPhotoCommand(ownerId, request, content);
 
@@ -207,6 +209,29 @@ public sealed class PhotosController : ControllerBase
         }
 
         var command = new RenamePhotoCommand(id, userId, request);
+
+        var result = await _mediator.Send(command, cancellationToken);
+
+        return result.Match(
+            onSuccess: Ok,
+            onFailure: err => Problem(
+                detail: err.Description,
+                statusCode: err.StatusCode));
+    }
+
+    [Authorize]
+    [HttpPut("{id:guid}/folder")]
+    public async Task<ActionResult<UploadPhotoResponseDto>> MovePhotoToFolder(
+        Guid id,
+        [FromBody] MovePhotoToFolderRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var command = new MovePhotoToFolderCommand(id, userId, request);
 
         var result = await _mediator.Send(command, cancellationToken);
 

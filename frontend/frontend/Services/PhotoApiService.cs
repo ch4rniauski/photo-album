@@ -119,11 +119,24 @@ public sealed class PhotoApiService
             cancellationToken);
     }
 
+    public Task<(PhotoMutationResponseDto? Photo, string? ErrorMessage)> MovePhotoToFolderAsync(
+        Guid id,
+        Guid? folderId,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAuthorizedMutationAsync(
+            HttpMethod.Put,
+            $"api/Photos/{id}/folder",
+            new MovePhotoToFolderRequestDto(folderId),
+            cancellationToken);
+    }
+
     public async Task<(PhotoMutationResponseDto? Photo, string? ErrorMessage)> UploadPhotoAsync(
         Stream content,
         string fileName,
         string contentType,
         string name,
+        Guid? folderId = null,
         CancellationToken cancellationToken = default)
     {
         await using var buffer = new MemoryStream();
@@ -141,6 +154,12 @@ public sealed class PhotoApiService
 
                 form.Add(fileContent, "photo", fileName);
                 form.Add(new StringContent(name), "name");
+
+                if (folderId is not null)
+                {
+                    form.Add(new StringContent(folderId.Value.ToString()), "folderId");
+                }
+
                 request.Content = form;
 
                 return request;

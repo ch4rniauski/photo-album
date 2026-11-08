@@ -7,6 +7,7 @@ public class PhotoAlbumContext : DbContext
 {
     public DbSet<UserEntity> Users { get; set; }
     public DbSet<PhotoEntity> Photos { get; set; }
+    public DbSet<FolderEntity> Folders { get; set; }
     public DbSet<PhotoReactionEntity> PhotoReactions { get; set; }
     public DbSet<UserActivityEntity> UserActivities { get; set; }
 

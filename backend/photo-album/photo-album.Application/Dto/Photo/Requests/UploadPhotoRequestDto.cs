@@ -4,4 +4,5 @@ public sealed record UploadPhotoRequestDto(
     string Name,
     string ContentType,
     string OriginalFileName,
-    long Length);
+    long Length,
+    Guid? FolderId = null);

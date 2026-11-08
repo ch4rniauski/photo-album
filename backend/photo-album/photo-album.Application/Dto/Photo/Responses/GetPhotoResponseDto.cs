@@ -6,4 +6,5 @@ public sealed record GetPhotoResponseDto(
     int LikesCount,
     int DislikesCount,
     Guid OwnerId,
+    Guid? FolderId,
     string ThumbnailUrl);

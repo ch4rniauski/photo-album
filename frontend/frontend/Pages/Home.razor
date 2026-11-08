@@ -1,5 +1,6 @@
 ﻿@page "/"
 @inject PhotoApiService PhotoApi
+@inject FolderApiService FolderApi
 @inject AuthService Auth
 @inject NavigationManager Navigation
 @inject IJSRuntime Js
@@ -36,6 +37,7 @@
         </form>
 
         <div class="site-header__actions">
+            <a class="btn btn--ghost" href="/folders">Folders</a>
             @if (Auth.IsAuthenticated)
             {
                 <a class="btn btn--primary" href="/upload">Upload</a>
@@ -245,6 +247,27 @@
                                 Save name
                             </button>
                         </form>
+
+                        <form class="photo-modal__move" @onsubmit="HandleMoveAsync" @onsubmit:preventDefault>
+                            <label class="visually-hidden" for="photo-folder">Move to folder</label>
+                            <select
+                                id="photo-folder"
+                                class="photo-modal__move-select"
+                                @bind="_moveFolderValue"
+                                disabled="@(_isActionBusy || _isFoldersLoading)">
+                                <option value="">No folder</option>
+                                @foreach (var folder in _ownerFolders)
+                                {
+                                    <option value="@folder.Id.ToString()">@folder.Name</option>
+                                }
+                            </select>
+                            <button
+                                class="btn btn--ghost btn--compact"
+                                type="submit"
+                                disabled="@(_isActionBusy || !CanMove)">
+                                Move
+                            </button>
+                        </form>
                     }
 
                     @if (!string.IsNullOrWhiteSpace(_actionErrorMessage))
@@ -261,10 +284,12 @@
     private const int PageSize = 12;
 
     private readonly List<PhotoDto> _photos = [];
+    private readonly List<FolderDto> _ownerFolders = [];
 
     private string _searchText = string.Empty;
     private string _activeSearch = string.Empty;
     private string _renameText = string.Empty;
+    private string _moveFolderValue = string.Empty;
     private string? _errorMessage;
     private string? _modalErrorMessage;
     private string? _actionErrorMessage;
@@ -280,6 +305,7 @@
     private bool _isOriginalLoading;
     private bool _isReactionLoading;
     private bool _isActionBusy;
+    private bool _isFoldersLoading;
     private bool _shouldFocusModal;
     private ElementReference _modalRoot;
 
@@ -293,6 +319,23 @@
         !string.IsNullOrWhiteSpace(_renameText) &&
         _selectedPhoto is not null &&
         !string.Equals(_renameText.Trim(), _selectedPhoto.Name, StringComparison.Ordinal);
+
+    private bool CanMove
+    {
+        get
+        {
+            if (_selectedPhoto is null)
+            {
+                return false;
+            }
+
+            Guid? selectedFolderId = string.IsNullOrWhiteSpace(_moveFolderValue)
+                ? null
+                : Guid.Parse(_moveFolderValue);
+
+            return _selectedPhoto.FolderId != selectedFolderId;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -423,10 +466,16 @@
         _selectedPhoto = photo;
         _currentUserIsLiked = null;
         _renameText = photo.Name;
+        _moveFolderValue = photo.FolderId?.ToString() ?? string.Empty;
         _originalObjectUrl = null;
         _shouldFocusModal = true;
 
         StateHasChanged();
+
+        if (IsSelectedPhotoOwner)
+        {
+            _ = LoadOwnerFoldersAsync();
+        }
 
         var originalTask = PhotoApi.GetOriginalPhotoAsync(photo.Id);
         var reactionTask = Auth.IsAuthenticated
@@ -582,6 +631,69 @@
         }
     }
 
+    private async Task LoadOwnerFoldersAsync()
+    {
+        _isFoldersLoading = true;
+
+        try
+        {
+            var (folders, _) = await FolderApi.GetMyFoldersAsync();
+
+            _ownerFolders.Clear();
+            _ownerFolders.AddRange(folders);
+        }
+        catch (Exception)
+        {
+            _ownerFolders.Clear();
+        }
+        finally
+        {
+            _isFoldersLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task HandleMoveAsync()
+    {
+        if (_selectedPhoto is null ||
+            _isActionBusy ||
+            !CanMove)
+        {
+            return;
+        }
+
+        _isActionBusy = true;
+        _actionErrorMessage = null;
+
+        try
+        {
+            Guid? folderId = string.IsNullOrWhiteSpace(_moveFolderValue)
+                ? null
+                : Guid.Parse(_moveFolderValue);
+
+            var (updated, errorMessage) = await PhotoApi.MovePhotoToFolderAsync(
+                _selectedPhoto.Id,
+                folderId);
+
+            if (updated is null)
+            {
+                _actionErrorMessage = errorMessage ?? "Could not move this photo.";
+                return;
+            }
+
+            ApplyPhotoMutation(updated);
+            _moveFolderValue = updated.FolderId?.ToString() ?? string.Empty;
+        }
+        catch (Exception)
+        {
+            _actionErrorMessage = "Could not move this photo.";
+        }
+        finally
+        {
+            _isActionBusy = false;
+        }
+    }
+
     private void ApplyPhotoMutation(PhotoMutationResponseDto updated)
     {
         if (_selectedPhoto is null)
@@ -593,7 +705,8 @@
         {
             Name = updated.Name,
             LikesCount = updated.LikesCount,
-            DislikesCount = updated.DislikesCount
+            DislikesCount = updated.DislikesCount,
+            FolderId = updated.FolderId
         };
 
         _selectedPhoto = next;
@@ -630,6 +743,7 @@
         _selectedPhoto = null;
         _currentUserIsLiked = null;
         _renameText = string.Empty;
+        _moveFolderValue = string.Empty;
 
         await RevokeOriginalObjectUrlAsync();
     }

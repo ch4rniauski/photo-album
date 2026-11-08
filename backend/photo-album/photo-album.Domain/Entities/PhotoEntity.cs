@@ -10,6 +10,8 @@ public sealed class PhotoEntity
     public int DislikesCount { get; set; }
     public Guid OwnerId { get; set; }
     public UserEntity Owner { get; set; } = null!;
+    public Guid? FolderId { get; set; }
+    public FolderEntity? Folder { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public ICollection<PhotoReactionEntity> Reactions { get; set; } = [];
 }

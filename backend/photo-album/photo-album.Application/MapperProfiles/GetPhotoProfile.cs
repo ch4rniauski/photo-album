@@ -15,6 +15,7 @@ internal sealed class GetPhotoProfile : Profile
                 src.LikesCount,
                 src.DislikesCount,
                 src.OwnerId,
+                src.FolderId,
                 $"api/Photos/{src.Id}/thumbnail"));
     }
 }

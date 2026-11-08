@@ -9,5 +9,6 @@ public sealed class UserEntity
     public string Role { get; set; } = "User";
     public string? RefreshToken { get; set; }
     public ICollection<PhotoEntity> Photos { get; set; } = [];
+    public ICollection<FolderEntity> Folders { get; set; } = [];
     public ICollection<PhotoReactionEntity> PhotoReactions { get; set; } = [];
 }

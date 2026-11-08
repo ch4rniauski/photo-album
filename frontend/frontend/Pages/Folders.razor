@@ -1,0 +1,266 @@
+@page "/folders"
+@inject FolderApiService FolderApi
+@inject AuthService Auth
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<PageTitle>Folders · Photo Album</PageTitle>
+
+<header class="site-header">
+    <div class="site-header__inner">
+        <a class="brand" href="/">
+            <span class="brand__mark" aria-hidden="true"></span>
+            <span class="brand__name">Photo Album</span>
+        </a>
+
+        <div class="site-header__spacer" aria-hidden="true"></div>
+
+        <div class="site-header__actions">
+            <a class="btn btn--ghost" href="/">Gallery</a>
+            @if (Auth.IsAuthenticated)
+            {
+                <a class="btn btn--primary" href="/upload">Upload</a>
+                @if (Auth.IsAdmin)
+                {
+                    <a class="btn btn--ghost" href="/admin/users">Admin</a>
+                }
+                <button class="btn btn--ghost" type="button" @onclick="HandleLogoutAsync">
+                    Log out
+                </button>
+            }
+            else
+            {
+                <a class="btn btn--primary" href="/login">Log in</a>
+            }
+        </div>
+    </div>
+</header>
+
+<main class="home">
+    <section class="home__intro">
+        <h1 class="home__title">Folders</h1>
+        <p class="home__subtitle">
+            Browse public folders — page @_page
+        </p>
+    </section>
+
+    @if (Auth.IsAuthenticated)
+    {
+        <section class="folder-create" aria-label="Create folder">
+            <form class="folder-create__form" @onsubmit="HandleCreateFolderAsync" @onsubmit:preventDefault>
+                <div class="field folder-create__field">
+                    <label for="folder-name">New folder</label>
+                    <input
+                        id="folder-name"
+                        class="field__input"
+                        type="text"
+                        maxlength="100"
+                        placeholder="Folder name"
+                        @bind="_newFolderName"
+                        @bind:event="oninput"
+                        disabled="@_isCreating"
+                        autocomplete="off" />
+                </div>
+                <button
+                    class="btn btn--primary"
+                    type="submit"
+                    disabled="@(_isCreating || string.IsNullOrWhiteSpace(_newFolderName))">
+                    @(_isCreating ? "Creating…" : "Create folder")
+                </button>
+            </form>
+
+            @if (!string.IsNullOrWhiteSpace(_createErrorMessage))
+            {
+                <div class="banner banner--error" role="alert">@_createErrorMessage</div>
+            }
+        </section>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <div class="banner banner--error" role="alert">@_errorMessage</div>
+    }
+
+    @if (_isLoading)
+    {
+        <div class="gallery-status" aria-live="polite">Loading folders…</div>
+    }
+    else if (_folders.Count == 0)
+    {
+        <div class="gallery-status">
+            @if (Auth.IsAuthenticated)
+            {
+                <text>No folders yet. Create one above.</text>
+            }
+            else
+            {
+                <text>No folders yet. <a href="/login">Log in</a> to create one.</text>
+            }
+        </div>
+    }
+    else
+    {
+        <section class="folder-grid" aria-label="Folders">
+            @foreach (var folder in _folders)
+            {
+                <a class="folder-card" href="@($"/folders/{folder.Id}")" @key="folder.Id">
+                    <span class="folder-card__icon" aria-hidden="true"></span>
+                    <span class="folder-card__body">
+                        <span class="folder-card__title">@folder.Name</span>
+                        <span class="folder-card__meta">
+                            by @folder.OwnerUserName · @FormatPhotoCount(folder.PhotosCount)
+                        </span>
+                    </span>
+                </a>
+            }
+        </section>
+    }
+
+    @if (!_isLoading)
+    {
+        <nav class="pagination" aria-label="Folders pagination">
+            <button
+                class="btn btn--ghost"
+                type="button"
+                disabled="@(!_canGoPrevious || _isLoading)"
+                @onclick="GoToPreviousPageAsync">
+                Previous
+            </button>
+            <span class="pagination__page">Page @_page</span>
+            <button
+                class="btn btn--ghost"
+                type="button"
+                disabled="@(!_canGoNext || _isLoading)"
+                @onclick="GoToNextPageAsync">
+                Next
+            </button>
+        </nav>
+    }
+</main>
+
+@code {
+    private const int PageSize = 12;
+
+    private readonly List<FolderDto> _folders = [];
+
+    private string _newFolderName = string.Empty;
+    private string? _errorMessage;
+    private string? _createErrorMessage;
+    private int _page = 1;
+    private bool _isLoading = true;
+    private bool _isCreating;
+    private bool _canGoNext;
+    private bool _canGoPrevious;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Auth.AuthenticationStateChanged += OnAuthChanged;
+        await Auth.InitializeAsync();
+        await LoadFoldersAsync();
+    }
+
+    private void OnAuthChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadFoldersAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var folders = await FolderApi.GetFoldersAsync(_page, PageSize);
+
+            _folders.Clear();
+            _folders.AddRange(folders);
+            _canGoPrevious = _page > 1;
+            _canGoNext = folders.Count >= PageSize;
+        }
+        catch (Exception)
+        {
+            _folders.Clear();
+            _errorMessage = "Could not load folders. Make sure the API is running.";
+            _canGoNext = false;
+            _canGoPrevious = false;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task HandleCreateFolderAsync()
+    {
+        if (_isCreating ||
+            string.IsNullOrWhiteSpace(_newFolderName))
+        {
+            return;
+        }
+
+        _isCreating = true;
+        _createErrorMessage = null;
+
+        try
+        {
+            var (folder, errorMessage) = await FolderApi.CreateFolderAsync(_newFolderName.Trim());
+
+            if (folder is null)
+            {
+                _createErrorMessage = errorMessage ?? "Could not create folder.";
+                return;
+            }
+
+            _newFolderName = string.Empty;
+            Navigation.NavigateTo($"/folders/{folder.Id}");
+        }
+        catch (Exception)
+        {
+            _createErrorMessage = "Could not reach the API. Try again later.";
+        }
+        finally
+        {
+            _isCreating = false;
+        }
+    }
+
+    private async Task GoToPreviousPageAsync()
+    {
+        if (!_canGoPrevious)
+        {
+            return;
+        }
+
+        _page--;
+
+        await LoadFoldersAsync();
+    }
+
+    private async Task GoToNextPageAsync()
+    {
+        if (!_canGoNext)
+        {
+            return;
+        }
+
+        _page++;
+
+        await LoadFoldersAsync();
+    }
+
+    private async Task HandleLogoutAsync()
+    {
+        await Auth.LogoutAsync();
+        Navigation.NavigateTo("/folders");
+    }
+
+    private static string FormatPhotoCount(int count) =>
+        $"{count} photo{(count == 1 ? "" : "s")}";
+
+    public void Dispose()
+    {
+        Auth.AuthenticationStateChanged -= OnAuthChanged;
+    }
+}

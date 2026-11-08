@@ -39,5 +39,12 @@ internal sealed class PhotoEntityConfiguration : IEntityTypeConfiguration<PhotoE
             .WithMany(user => user.Photos)
             .HasForeignKey(photo => photo.OwnerId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(photo => photo.Folder)
+            .WithMany(folder => folder.Photos)
+            .HasForeignKey(photo => photo.FolderId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasIndex(photo => photo.FolderId);
     }
 }

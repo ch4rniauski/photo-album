@@ -1,0 +1,802 @@
+@page "/folders/{FolderId:guid}"
+@inject FolderApiService FolderApi
+@inject PhotoApiService PhotoApi
+@inject AuthService Auth
+@inject NavigationManager Navigation
+@inject IJSRuntime Js
+@implements IAsyncDisposable
+
+<PageTitle>@(_folder?.Name ?? "Folder") · Photo Album</PageTitle>
+
+<header class="site-header">
+    <div class="site-header__inner">
+        <a class="brand" href="/">
+            <span class="brand__mark" aria-hidden="true"></span>
+            <span class="brand__name">Photo Album</span>
+        </a>
+
+        <div class="site-header__spacer" aria-hidden="true"></div>
+
+        <div class="site-header__actions">
+            <a class="btn btn--ghost" href="/folders">Folders</a>
+            <a class="btn btn--ghost" href="/">Gallery</a>
+            @if (Auth.IsAuthenticated)
+            {
+                @if (IsFolderOwner)
+                {
+                    <a class="btn btn--primary" href="@($"/upload?folderId={FolderId}")">Upload here</a>
+                }
+                else
+                {
+                    <a class="btn btn--primary" href="/upload">Upload</a>
+                }
+                @if (Auth.IsAdmin)
+                {
+                    <a class="btn btn--ghost" href="/admin/users">Admin</a>
+                }
+                <button class="btn btn--ghost" type="button" @onclick="HandleLogoutAsync">
+                    Log out
+                </button>
+            }
+            else
+            {
+                <a class="btn btn--primary" href="/login">Log in</a>
+            }
+        </div>
+    </div>
+</header>
+
+<main class="home">
+    @if (_isFolderLoading)
+    {
+        <div class="gallery-status" aria-live="polite">Loading folder…</div>
+    }
+    else if (_folder is null)
+    {
+        <div class="gallery-status">
+            Folder not found. <a href="/folders">Back to folders</a>
+        </div>
+    }
+    else
+    {
+        <section class="home__intro">
+            <p class="home__eyebrow">
+                <a href="/folders">Folders</a>
+                <span aria-hidden="true"> / </span>
+                <span>@_folder.OwnerUserName</span>
+            </p>
+            <h1 class="home__title">@_folder.Name</h1>
+            <p class="home__subtitle">
+                @FormatPhotoCount(_folder.PhotosCount) · page @_page
+            </p>
+        </section>
+
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <div class="banner banner--error" role="alert">@_errorMessage</div>
+        }
+
+        @if (_isLoading)
+        {
+            <div class="gallery-status" aria-live="polite">Loading photos…</div>
+        }
+        else if (_photos.Count == 0)
+        {
+            <div class="gallery-status">
+                @if (IsFolderOwner)
+                {
+                    <text>This folder is empty. <a href="@($"/upload?folderId={FolderId}")">Upload a photo here</a>.</text>
+                }
+                else
+                {
+                    <text>This folder is empty.</text>
+                }
+            </div>
+        }
+        else
+        {
+            <section class="gallery" aria-label="Folder photos">
+                @foreach (var photo in _photos)
+                {
+                    <button
+                        type="button"
+                        class="photo-card"
+                        @key="photo.Id"
+                        @onclick="() => OpenOriginalAsync(photo)">
+                        <span class="photo-card__frame">
+                            <img
+                                class="photo-card__image"
+                                src="@PhotoApi.ResolveThumbnailUrl(photo.ThumbnailUrl)"
+                                alt="@photo.Name"
+                                loading="lazy" />
+                        </span>
+                        <span class="photo-card__meta">
+                            <span class="photo-card__title">@photo.Name</span>
+                            <span class="photo-card__stats">
+                                <span>@FormatLikes(photo.LikesCount)</span>
+                                <span aria-hidden="true">·</span>
+                                <span>@FormatDislikes(photo.DislikesCount)</span>
+                            </span>
+                        </span>
+                    </button>
+                }
+            </section>
+        }
+
+        @if (!_isLoading)
+        {
+            <nav class="pagination" aria-label="Folder pagination">
+                <button
+                    class="btn btn--ghost"
+                    type="button"
+                    disabled="@(!_canGoPrevious || _isLoading)"
+                    @onclick="GoToPreviousPageAsync">
+                    Previous
+                </button>
+                <span class="pagination__page">Page @_page</span>
+                <button
+                    class="btn btn--ghost"
+                    type="button"
+                    disabled="@(!_canGoNext || _isLoading)"
+                    @onclick="GoToNextPageAsync">
+                    Next
+                </button>
+            </nav>
+        }
+    }
+</main>
+
+@if (_isModalOpen && _selectedPhoto is not null)
+{
+    <div
+        class="photo-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="@_selectedPhoto.Name"
+        tabindex="-1"
+        @ref="_modalRoot"
+        @onclick="CloseModalAsync"
+        @onkeydown="HandleModalKeyDownAsync">
+        <button
+            class="photo-modal__close"
+            type="button"
+            aria-label="Close"
+            @onclick="CloseModalAsync"
+            @onclick:stopPropagation>
+            <span aria-hidden="true">&times;</span>
+        </button>
+
+        <div class="photo-modal__content" @onclick:stopPropagation>
+            @if (_isOriginalLoading)
+            {
+                <div class="photo-modal__status" aria-live="polite">Loading original…</div>
+            }
+            else if (!string.IsNullOrWhiteSpace(_modalErrorMessage))
+            {
+                <div class="photo-modal__status photo-modal__status--error" role="alert">
+                    @_modalErrorMessage
+                </div>
+            }
+            else if (!string.IsNullOrWhiteSpace(_originalObjectUrl))
+            {
+                <img
+                    class="photo-modal__image"
+                    src="@_originalObjectUrl"
+                    alt="@_selectedPhoto.Name" />
+
+                <div class="photo-modal__panel">
+                    <div class="photo-modal__header">
+                        <h2 class="photo-modal__title">@_selectedPhoto.Name</h2>
+                        <p class="photo-modal__stats">
+                            <span>@FormatLikes(_selectedPhoto.LikesCount)</span>
+                            <span aria-hidden="true">·</span>
+                            <span>@FormatDislikes(_selectedPhoto.DislikesCount)</span>
+                        </p>
+                    </div>
+
+                    <div class="photo-modal__actions">
+                        @if (Auth.IsAuthenticated)
+                        {
+                            <button
+                                class="@GetReactionButtonClass(isLike: true)"
+                                type="button"
+                                aria-pressed="@(_currentUserIsLiked == true)"
+                                disabled="@(_isActionBusy || _isReactionLoading)"
+                                @onclick="HandleLikeAsync">
+                                Like
+                            </button>
+                            <button
+                                class="@GetReactionButtonClass(isLike: false)"
+                                type="button"
+                                aria-pressed="@(_currentUserIsLiked == false)"
+                                disabled="@(_isActionBusy || _isReactionLoading)"
+                                @onclick="HandleDislikeAsync">
+                                Dislike
+                            </button>
+                        }
+                        else
+                        {
+                            <a class="btn btn--primary btn--compact" href="/login">Log in to react</a>
+                        }
+                    </div>
+
+                    @if (IsSelectedPhotoOwner)
+                    {
+                        <form class="photo-modal__rename" @onsubmit="HandleRenameAsync" @onsubmit:preventDefault>
+                            <label class="visually-hidden" for="photo-rename">Photo name</label>
+                            <input
+                                id="photo-rename"
+                                class="photo-modal__rename-input"
+                                type="text"
+                                maxlength="100"
+                                @bind="_renameText"
+                                @bind:event="oninput"
+                                disabled="@_isActionBusy"
+                                autocomplete="off" />
+                            <button
+                                class="btn btn--primary btn--compact"
+                                type="submit"
+                                disabled="@(_isActionBusy || !CanRename)">
+                                Save name
+                            </button>
+                        </form>
+
+                        <form class="photo-modal__move" @onsubmit="HandleMoveAsync" @onsubmit:preventDefault>
+                            <label class="visually-hidden" for="photo-folder">Move to folder</label>
+                            <select
+                                id="photo-folder"
+                                class="photo-modal__move-select"
+                                @bind="_moveFolderValue"
+                                disabled="@(_isActionBusy || _isFoldersLoading)">
+                                <option value="">No folder</option>
+                                @foreach (var folder in _ownerFolders)
+                                {
+                                    <option value="@folder.Id.ToString()">@folder.Name</option>
+                                }
+                            </select>
+                            <button
+                                class="btn btn--ghost btn--compact"
+                                type="submit"
+                                disabled="@(_isActionBusy || !CanMove)">
+                                Move
+                            </button>
+                        </form>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_actionErrorMessage))
+                    {
+                        <p class="photo-modal__action-error" role="alert">@_actionErrorMessage</p>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private const int PageSize = 12;
+
+    [Parameter]
+    public Guid FolderId { get; set; }
+
+    private readonly List<PhotoDto> _photos = [];
+    private readonly List<FolderDto> _ownerFolders = [];
+
+    private FolderDto? _folder;
+    private string _renameText = string.Empty;
+    private string _moveFolderValue = string.Empty;
+    private string? _errorMessage;
+    private string? _modalErrorMessage;
+    private string? _actionErrorMessage;
+    private string? _originalObjectUrl;
+    private PhotoDto? _selectedPhoto;
+    private bool? _currentUserIsLiked;
+    private int _page = 1;
+    private bool _isFolderLoading = true;
+    private bool _isLoading;
+    private bool _canGoNext;
+    private bool _canGoPrevious;
+    private bool _isModalOpen;
+    private bool _isOriginalLoading;
+    private bool _isReactionLoading;
+    private bool _isActionBusy;
+    private bool _isFoldersLoading;
+    private bool _shouldFocusModal;
+    private ElementReference _modalRoot;
+
+    private bool IsFolderOwner =>
+        _folder is not null &&
+        Auth.IsAuthenticated &&
+        Guid.TryParse(Auth.UserId, out var userId) &&
+        _folder.OwnerId == userId;
+
+    private bool IsSelectedPhotoOwner =>
+        _selectedPhoto is not null &&
+        Auth.IsAuthenticated &&
+        Guid.TryParse(Auth.UserId, out var userId) &&
+        _selectedPhoto.OwnerId == userId;
+
+    private bool CanRename =>
+        !string.IsNullOrWhiteSpace(_renameText) &&
+        _selectedPhoto is not null &&
+        !string.Equals(_renameText.Trim(), _selectedPhoto.Name, StringComparison.Ordinal);
+
+    private bool CanMove
+    {
+        get
+        {
+            if (_selectedPhoto is null)
+            {
+                return false;
+            }
+
+            Guid? selectedFolderId = string.IsNullOrWhiteSpace(_moveFolderValue)
+                ? null
+                : Guid.Parse(_moveFolderValue);
+
+            return _selectedPhoto.FolderId != selectedFolderId;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Auth.AuthenticationStateChanged += OnAuthChanged;
+        await Auth.InitializeAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _page = 1;
+        await LoadFolderAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_shouldFocusModal && _isModalOpen)
+        {
+            _shouldFocusModal = false;
+            await _modalRoot.FocusAsync();
+        }
+    }
+
+    private void OnAuthChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadFolderAsync()
+    {
+        _isFolderLoading = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            _folder = await FolderApi.GetFolderByIdAsync(FolderId);
+
+            if (_folder is not null)
+            {
+                await LoadPhotosAsync();
+            }
+        }
+        catch (Exception)
+        {
+            _folder = null;
+            _errorMessage = "Could not load folder. Make sure the API is running.";
+        }
+        finally
+        {
+            _isFolderLoading = false;
+        }
+    }
+
+    private async Task LoadPhotosAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var photos = await FolderApi.GetFolderPhotosAsync(FolderId, _page, PageSize);
+
+            _photos.Clear();
+            _photos.AddRange(photos);
+            _canGoPrevious = _page > 1;
+            _canGoNext = photos.Count >= PageSize;
+        }
+        catch (Exception)
+        {
+            _photos.Clear();
+            _errorMessage = "Could not load photos. Make sure the API is running.";
+            _canGoNext = false;
+            _canGoPrevious = false;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task GoToPreviousPageAsync()
+    {
+        if (!_canGoPrevious)
+        {
+            return;
+        }
+
+        _page--;
+
+        await LoadPhotosAsync();
+    }
+
+    private async Task GoToNextPageAsync()
+    {
+        if (!_canGoNext)
+        {
+            return;
+        }
+
+        _page++;
+
+        await LoadPhotosAsync();
+    }
+
+    private async Task HandleLogoutAsync()
+    {
+        await Auth.LogoutAsync();
+        Navigation.NavigateTo($"/folders/{FolderId}");
+    }
+
+    private async Task OpenOriginalAsync(PhotoDto photo)
+    {
+        await RevokeOriginalObjectUrlAsync();
+
+        _isModalOpen = true;
+        _isOriginalLoading = true;
+        _isReactionLoading = Auth.IsAuthenticated;
+        _modalErrorMessage = null;
+        _actionErrorMessage = null;
+        _selectedPhoto = photo;
+        _currentUserIsLiked = null;
+        _renameText = photo.Name;
+        _moveFolderValue = photo.FolderId?.ToString() ?? string.Empty;
+        _originalObjectUrl = null;
+        _shouldFocusModal = true;
+
+        StateHasChanged();
+
+        if (IsSelectedPhotoOwner)
+        {
+            _ = LoadOwnerFoldersAsync();
+        }
+
+        var originalTask = PhotoApi.GetOriginalPhotoAsync(photo.Id);
+        var reactionTask = Auth.IsAuthenticated
+            ? PhotoApi.GetMyReactionAsync(photo.Id)
+            : Task.FromResult((Success: false, IsLiked: (bool?)null));
+
+        try
+        {
+            var original = await originalTask;
+
+            if (original is null)
+            {
+                _modalErrorMessage = "Could not load the original photo.";
+            }
+            else
+            {
+                _originalObjectUrl = await Js.InvokeAsync<string>(
+                    "photoAlbum.createObjectUrl",
+                    original.ContentType,
+                    original.Bytes);
+            }
+        }
+        catch (Exception)
+        {
+            _modalErrorMessage = "Could not load the original photo.";
+        }
+        finally
+        {
+            _isOriginalLoading = false;
+        }
+
+        try
+        {
+            var (success, isLiked) = await reactionTask;
+
+            if (success)
+            {
+                _currentUserIsLiked = isLiked;
+            }
+        }
+        catch (Exception)
+        {
+            _currentUserIsLiked = null;
+        }
+        finally
+        {
+            _isReactionLoading = false;
+        }
+    }
+
+    private async Task LoadOwnerFoldersAsync()
+    {
+        _isFoldersLoading = true;
+
+        try
+        {
+            var (folders, _) = await FolderApi.GetMyFoldersAsync();
+
+            _ownerFolders.Clear();
+            _ownerFolders.AddRange(folders);
+        }
+        catch (Exception)
+        {
+            _ownerFolders.Clear();
+        }
+        finally
+        {
+            _isFoldersLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task HandleLikeAsync()
+    {
+        if (_selectedPhoto is null ||
+            _isActionBusy)
+        {
+            return;
+        }
+
+        _isActionBusy = true;
+        _actionErrorMessage = null;
+
+        try
+        {
+            var (updated, errorMessage) = await PhotoApi.LikePhotoAsync(_selectedPhoto.Id);
+
+            if (updated is null)
+            {
+                _actionErrorMessage = errorMessage ?? "Could not like this photo.";
+                return;
+            }
+
+            ApplyPhotoMutation(updated);
+            _currentUserIsLiked = _currentUserIsLiked == true ? null : true;
+        }
+        catch (Exception)
+        {
+            _actionErrorMessage = "Could not like this photo.";
+        }
+        finally
+        {
+            _isActionBusy = false;
+        }
+    }
+
+    private async Task HandleDislikeAsync()
+    {
+        if (_selectedPhoto is null ||
+            _isActionBusy)
+        {
+            return;
+        }
+
+        _isActionBusy = true;
+        _actionErrorMessage = null;
+
+        try
+        {
+            var (updated, errorMessage) = await PhotoApi.DislikePhotoAsync(_selectedPhoto.Id);
+
+            if (updated is null)
+            {
+                _actionErrorMessage = errorMessage ?? "Could not dislike this photo.";
+                return;
+            }
+
+            ApplyPhotoMutation(updated);
+            _currentUserIsLiked = _currentUserIsLiked == false ? null : false;
+        }
+        catch (Exception)
+        {
+            _actionErrorMessage = "Could not dislike this photo.";
+        }
+        finally
+        {
+            _isActionBusy = false;
+        }
+    }
+
+    private async Task HandleRenameAsync()
+    {
+        if (_selectedPhoto is null ||
+            _isActionBusy ||
+            !CanRename)
+        {
+            return;
+        }
+
+        _isActionBusy = true;
+        _actionErrorMessage = null;
+
+        try
+        {
+            var (updated, errorMessage) = await PhotoApi.RenamePhotoAsync(
+                _selectedPhoto.Id,
+                _renameText.Trim());
+
+            if (updated is null)
+            {
+                _actionErrorMessage = errorMessage ?? "Could not rename this photo.";
+                return;
+            }
+
+            ApplyPhotoMutation(updated);
+            _renameText = updated.Name;
+        }
+        catch (Exception)
+        {
+            _actionErrorMessage = "Could not rename this photo.";
+        }
+        finally
+        {
+            _isActionBusy = false;
+        }
+    }
+
+    private async Task HandleMoveAsync()
+    {
+        if (_selectedPhoto is null ||
+            _isActionBusy ||
+            !CanMove)
+        {
+            return;
+        }
+
+        _isActionBusy = true;
+        _actionErrorMessage = null;
+
+        try
+        {
+            Guid? folderId = string.IsNullOrWhiteSpace(_moveFolderValue)
+                ? null
+                : Guid.Parse(_moveFolderValue);
+
+            var (updated, errorMessage) = await PhotoApi.MovePhotoToFolderAsync(
+                _selectedPhoto.Id,
+                folderId);
+
+            if (updated is null)
+            {
+                _actionErrorMessage = errorMessage ?? "Could not move this photo.";
+                return;
+            }
+
+            ApplyPhotoMutation(updated);
+            _moveFolderValue = updated.FolderId?.ToString() ?? string.Empty;
+
+            if (updated.FolderId != FolderId)
+            {
+                _photos.RemoveAll(photo => photo.Id == updated.Id);
+
+                if (_folder is not null)
+                {
+                    _folder = _folder with
+                    {
+                        PhotosCount = Math.Max(0, _folder.PhotosCount - 1)
+                    };
+                }
+
+                await CloseModalAsync();
+            }
+        }
+        catch (Exception)
+        {
+            _actionErrorMessage = "Could not move this photo.";
+        }
+        finally
+        {
+            _isActionBusy = false;
+        }
+    }
+
+    private void ApplyPhotoMutation(PhotoMutationResponseDto updated)
+    {
+        if (_selectedPhoto is null)
+        {
+            return;
+        }
+
+        var next = _selectedPhoto with
+        {
+            Name = updated.Name,
+            LikesCount = updated.LikesCount,
+            DislikesCount = updated.DislikesCount,
+            FolderId = updated.FolderId
+        };
+
+        _selectedPhoto = next;
+
+        var index = _photos.FindIndex(photo => photo.Id == next.Id);
+
+        if (index >= 0)
+        {
+            _photos[index] = next;
+        }
+    }
+
+    private async Task HandleModalKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+        {
+            await CloseModalAsync();
+        }
+    }
+
+    private async Task CloseModalAsync()
+    {
+        if (!_isModalOpen)
+        {
+            return;
+        }
+
+        _isModalOpen = false;
+        _isOriginalLoading = false;
+        _isReactionLoading = false;
+        _isActionBusy = false;
+        _modalErrorMessage = null;
+        _actionErrorMessage = null;
+        _selectedPhoto = null;
+        _currentUserIsLiked = null;
+        _renameText = string.Empty;
+        _moveFolderValue = string.Empty;
+
+        await RevokeOriginalObjectUrlAsync();
+    }
+
+    private string GetReactionButtonClass(bool isLike)
+    {
+        var isSelected = isLike
+            ? _currentUserIsLiked == true
+            : _currentUserIsLiked == false;
+
+        return isSelected
+            ? "btn btn--ghost btn--compact photo-modal__reaction photo-modal__reaction--selected"
+            : "btn btn--ghost btn--compact photo-modal__reaction";
+    }
+
+    private async Task RevokeOriginalObjectUrlAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_originalObjectUrl))
+        {
+            return;
+        }
+
+        var url = _originalObjectUrl;
+        _originalObjectUrl = null;
+
+        try
+        {
+            await Js.InvokeVoidAsync("photoAlbum.revokeObjectUrl", url);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    private static string FormatLikes(int count) => $"{count} like{(count == 1 ? "" : "s")}";
+
+    private static string FormatDislikes(int count) => $"{count} dislike{(count == 1 ? "" : "s")}";
+
+    private static string FormatPhotoCount(int count) =>
+        $"{count} photo{(count == 1 ? "" : "s")}";
+
+    public async ValueTask DisposeAsync()
+    {
+        Auth.AuthenticationStateChanged -= OnAuthChanged;
+        await RevokeOriginalObjectUrlAsync();
+    }
+}

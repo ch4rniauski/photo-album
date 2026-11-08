@@ -16,6 +16,7 @@ builder.Services.AddScoped(_ => new HttpClient
     BaseAddress = new Uri(apiBaseUrl)
 });
 builder.Services.AddScoped<PhotoApiService>();
+builder.Services.AddScoped<FolderApiService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<AdminApiService>();
 

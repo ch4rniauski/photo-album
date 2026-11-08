@@ -7,4 +7,5 @@ public sealed record UploadPhotoResponseDto(
     string ThumbnailFileName,
     int LikesCount,
     int DislikesCount,
-    Guid OwnerId);
+    Guid OwnerId,
+    Guid? FolderId);
