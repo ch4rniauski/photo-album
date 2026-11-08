@@ -117,6 +117,28 @@ public sealed class FoldersController : ControllerBase
                 statusCode: err.StatusCode));
     }
 
+    [Authorize]
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteFolder(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetUserId(out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var command = new DeleteFolderCommand(id, userId);
+
+        var result = await _mediator.Send(command, cancellationToken);
+
+        return result.Match<Guid, IActionResult>(
+            onSuccess: _ => NoContent(),
+            onFailure: err => Problem(
+                detail: err.Description,
+                statusCode: err.StatusCode));
+    }
+
     private bool TryGetUserId(out Guid userId)
     {
         var userIdClaim = User.FindFirstValue(JwtRegisteredClaimNames.Sub)

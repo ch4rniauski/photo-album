@@ -65,10 +65,24 @@
                 <span aria-hidden="true"> / </span>
                 <span>@_folder.OwnerUserName</span>
             </p>
-            <h1 class="home__title">@_folder.Name</h1>
-            <p class="home__subtitle">
-                @FormatPhotoCount(_folder.PhotosCount) · page @_page
-            </p>
+            <div class="home__intro-row">
+                <div>
+                    <h1 class="home__title">@_folder.Name</h1>
+                    <p class="home__subtitle">
+                        @FormatPhotoCount(_folder.PhotosCount) · page @_page
+                    </p>
+                </div>
+                @if (IsFolderOwner)
+                {
+                    <button
+                        class="btn btn--danger btn--compact"
+                        type="button"
+                        disabled="@_isDeletingFolder"
+                        @onclick="HandleDeleteFolderAsync">
+                        @(_isDeletingFolder ? "Deleting…" : "Delete folder")
+                    </button>
+                }
+            </div>
         </section>
 
         @if (!string.IsNullOrWhiteSpace(_errorMessage))
@@ -304,6 +318,7 @@
     private int _page = 1;
     private bool _isFolderLoading = true;
     private bool _isLoading;
+    private bool _isDeletingFolder;
     private bool _canGoNext;
     private bool _canGoPrevious;
     private bool _isModalOpen;
@@ -456,6 +471,49 @@
     {
         await Auth.LogoutAsync();
         Navigation.NavigateTo($"/folders/{FolderId}");
+    }
+
+    private async Task HandleDeleteFolderAsync()
+    {
+        if (_folder is null ||
+            _isDeletingFolder ||
+            !IsFolderOwner)
+        {
+            return;
+        }
+
+        var confirmed = await Js.InvokeAsync<bool>(
+            "confirm",
+            $"Delete folder “{_folder.Name}”? Photos inside will stay in the gallery.");
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        _isDeletingFolder = true;
+        _errorMessage = null;
+
+        try
+        {
+            var (success, errorMessage) = await FolderApi.DeleteFolderAsync(FolderId);
+
+            if (!success)
+            {
+                _errorMessage = errorMessage ?? "Could not delete this folder.";
+                return;
+            }
+
+            Navigation.NavigateTo("/folders");
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Could not delete this folder.";
+        }
+        finally
+        {
+            _isDeletingFolder = false;
+        }
     }
 
     private async Task OpenOriginalAsync(PhotoDto photo)

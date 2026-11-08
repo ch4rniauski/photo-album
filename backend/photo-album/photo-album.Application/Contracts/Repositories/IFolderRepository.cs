@@ -20,4 +20,6 @@ public interface IFolderRepository
         CancellationToken cancellationToken = default);
 
     Task<int> GetPhotosCountAsync(Guid folderId, CancellationToken cancellationToken = default);
+
+    Task<bool> DeleteAsync(FolderEntity folder, CancellationToken cancellationToken = default);
 }

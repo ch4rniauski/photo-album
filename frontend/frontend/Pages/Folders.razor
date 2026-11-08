@@ -2,6 +2,7 @@
 @inject FolderApiService FolderApi
 @inject AuthService Auth
 @inject NavigationManager Navigation
+@inject IJSRuntime Js
 @implements IDisposable
 
 <PageTitle>Folders · Photo Album</PageTitle>
@@ -103,15 +104,27 @@
         <section class="folder-grid" aria-label="Folders">
             @foreach (var folder in _folders)
             {
-                <a class="folder-card" href="@($"/folders/{folder.Id}")" @key="folder.Id">
-                    <span class="folder-card__icon" aria-hidden="true"></span>
-                    <span class="folder-card__body">
-                        <span class="folder-card__title">@folder.Name</span>
-                        <span class="folder-card__meta">
-                            by @folder.OwnerUserName · @FormatPhotoCount(folder.PhotosCount)
+                <div class="folder-card" @key="folder.Id">
+                    <a class="folder-card__link" href="@($"/folders/{folder.Id}")">
+                        <span class="folder-card__icon" aria-hidden="true"></span>
+                        <span class="folder-card__body">
+                            <span class="folder-card__title">@folder.Name</span>
+                            <span class="folder-card__meta">
+                                by @folder.OwnerUserName · @FormatPhotoCount(folder.PhotosCount)
+                            </span>
                         </span>
-                    </span>
-                </a>
+                    </a>
+                    @if (IsOwnedByCurrentUser(folder))
+                    {
+                        <button
+                            class="btn btn--danger btn--compact folder-card__delete"
+                            type="button"
+                            disabled="@(_deletingFolderId == folder.Id)"
+                            @onclick="() => HandleDeleteFolderAsync(folder)">
+                            @(_deletingFolderId == folder.Id ? "Deleting…" : "Delete")
+                        </button>
+                    }
+                </div>
             }
         </section>
     }
@@ -146,6 +159,7 @@
     private string _newFolderName = string.Empty;
     private string? _errorMessage;
     private string? _createErrorMessage;
+    private Guid? _deletingFolderId;
     private int _page = 1;
     private bool _isLoading = true;
     private bool _isCreating;
@@ -225,6 +239,53 @@
             _isCreating = false;
         }
     }
+
+    private async Task HandleDeleteFolderAsync(FolderDto folder)
+    {
+        if (_deletingFolderId is not null ||
+            !IsOwnedByCurrentUser(folder))
+        {
+            return;
+        }
+
+        var confirmed = await Js.InvokeAsync<bool>(
+            "confirm",
+            $"Delete folder “{folder.Name}”? Photos inside will stay in the gallery.");
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        _deletingFolderId = folder.Id;
+        _errorMessage = null;
+
+        try
+        {
+            var (success, errorMessage) = await FolderApi.DeleteFolderAsync(folder.Id);
+
+            if (!success)
+            {
+                _errorMessage = errorMessage ?? "Could not delete folder.";
+                return;
+            }
+
+            _folders.RemoveAll(item => item.Id == folder.Id);
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Could not delete folder.";
+        }
+        finally
+        {
+            _deletingFolderId = null;
+        }
+    }
+
+    private bool IsOwnedByCurrentUser(FolderDto folder) =>
+        Auth.IsAuthenticated &&
+        Guid.TryParse(Auth.UserId, out var userId) &&
+        folder.OwnerId == userId;
 
     private async Task GoToPreviousPageAsync()
     {

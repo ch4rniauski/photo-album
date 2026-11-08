@@ -66,4 +66,15 @@ internal sealed class FolderRepository : IFolderRepository
             .AsNoTracking()
             .CountAsync(photo => photo.FolderId == folderId, cancellationToken);
     }
+
+    public async Task<bool> DeleteAsync(
+        FolderEntity folder,
+        CancellationToken cancellationToken = default)
+    {
+        var deletedCount = await _context.Folders
+            .Where(entity => entity.Id == folder.Id)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        return deletedCount > 0;
+    }
 }

@@ -102,6 +102,24 @@ public sealed class FolderApiService
         return (null, errorMessage ?? "Could not create folder.");
     }
 
+    public async Task<(bool Success, string? ErrorMessage)> DeleteFolderAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _authService.SendAuthorizedAsync(
+            () => new HttpRequestMessage(HttpMethod.Delete, $"api/Folders/{id}"),
+            cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            return (true, null);
+        }
+
+        var errorMessage = await TryReadErrorDetailAsync(response, cancellationToken);
+
+        return (false, errorMessage ?? "Could not delete folder.");
+    }
+
     private static async Task<string?> TryReadErrorDetailAsync(
         HttpResponseMessage response,
         CancellationToken cancellationToken)
